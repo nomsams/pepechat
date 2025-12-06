@@ -2,1338 +2,1039 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>P2P Chat Demo (WebRTC + E2E)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PepeChat · Secure P2P</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#000000" />
+  
+  <!-- QR Code Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- PeerJS -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #151923;
-      --panel-light: #1e2433;
-      --accent: #4ea1ff;
-      --accent-soft: rgba(78,161,255,0.18);
-      --text: #f5f5f5;
-      --muted: #a0a4b8;
-      --danger: #ff4e6a;
-      --border: #2a3142;
-      --in: #1f5cf0;
-      --out: #2f9e44;
-      --system: #8e8fa1;
-      --radius: 10px;
+      --bg-gradient: radial-gradient(circle at top left, #2c3e50 0%, #000000 100%);
+      --glass-panel: rgba(30, 30, 30, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --accent: #0A84FF; /* Apple Blue */
+      --accent-grad: linear-gradient(135deg, #0A84FF, #0056b3);
+      --text-main: #ffffff;
+      --text-muted: #8e8e93;
+      --bubble-in: #262628;
+      --bubble-out: #0A84FF;
+      --danger: #FF453A;
+      --success: #30D158;
+      --radius-lg: 18px;
+      --radius-sm: 10px;
+      --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #1a2333 0, #05060a 55%);
-      color: var(--text);
+      font-family: var(--font-stack);
+      background: var(--bg-gradient);
+      color: var(--text-main);
       height: 100vh;
+      overflow: hidden;
       display: flex;
-      align-items: stretch;
       justify-content: center;
+      align-items: center;
     }
 
+    /* --- LOGIN SCREEN --- */
+    #loginScreen {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+    #loginScreen.hidden { opacity: 0; pointer-events: none; }
+    
+    .login-card {
+      background: rgba(40,40,40,0.8);
+      padding: 40px;
+      border-radius: 24px;
+      border: 1px solid var(--glass-border);
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .login-card h1 { margin: 0 0 10px; font-weight: 700; letter-spacing: -0.5px; }
+    .login-card p { color: var(--text-muted); margin-bottom: 25px; font-size: 14px; }
+    
+    .input-group { position: relative; margin-bottom: 20px; }
+    .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .login-input {
+      width: 100%;
+      padding: 14px 14px 14px 45px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: rgba(0,0,0,0.3);
+      color: white;
+      font-size: 16px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .login-input:focus { border-color: var(--accent); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: var(--accent-grad);
+      color: white;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+
+    /* --- MAIN APP LAYOUT --- */
     #app {
       width: 100%;
-      max-width: 1100px;
-      margin: 10px;
-      background: var(--panel);
-      border-radius: 16px;
-      border: 1px solid #22273a;
-      box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+      height: 100%;
+      max-width: 1400px;
+      display: flex;
+      background: var(--glass-panel);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      opacity: 0;
+      transform: scale(0.95);
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #app.visible { opacity: 1; transform: scale(1); }
+
+    /* SIDEBAR */
+    aside {
+      width: 320px;
+      border-right: 1px solid var(--glass-border);
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      background: rgba(0,0,0,0.2);
     }
-
-    header {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
+    
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .user-profile {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      background: linear-gradient(90deg, rgba(78,161,255,0.2), transparent);
-    }
-
-    header .title {
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      font-size: 14px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    header .identity {
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    header .identity strong {
-      color: var(--text);
-    }
-
-    main.layout {
-      flex: 1;
-      display: grid;
-      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-      min-height: 0;
-    }
-
-    aside.sidebar {
-      border-right: 1px solid var(--border);
-      background: radial-gradient(circle at top left, #252c3d 0, var(--panel) 60%);
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
       gap: 10px;
-      min-height: 0;
     }
-
-    .panel {
-      background: var(--panel-light);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      padding: 10px;
-      font-size: 13px;
-    }
-
-    .panel h2 {
-      margin: 0 0 6px;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .field {
-      margin-bottom: 8px;
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #ff9a9e, #fad0c4);
       display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .field label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-    }
-
-    .field-row {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-
-    input[type="text"] {
-      background: #0d1018;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      padding: 6px 7px;
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-      width: 100%;
-    }
-
-    input[type="text"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent-soft);
-    }
-
-    button,
-    .btn {
-      border-radius: 6px;
-      border: 1px solid transparent;
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      background: var(--accent);
-      color: #02030a;
-      display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      white-space: nowrap;
+      font-weight: bold;
+      color: #333;
+      font-size: 18px;
     }
+    .user-info h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .user-info span { font-size: 12px; color: var(--text-muted); font-family: monospace; }
 
-    button.secondary {
-      background: transparent;
-      border-color: var(--border);
-      color: var(--muted);
+    .sidebar-actions {
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
-
-    button.small {
-      padding: 4px 7px;
-      font-size: 11px;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-
-    .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
-
-    .my-id {
-      padding: 4px 6px;
-      border-radius: 6px;
-      background: #0d1018;
-      border: 1px dashed var(--border);
-      font-size: 11px;
+    .action-btn {
+      background: rgba(255,255,255,0.08);
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 12px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       gap: 6px;
+      transition: background 0.2s;
     }
-
-    .my-id span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .action-btn:hover { background: rgba(255,255,255,0.15); }
 
     .chat-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      max-height: 100%;
+      flex: 1;
       overflow-y: auto;
+      padding: 10px;
     }
-
-    .chat-list-item {
-      width: 100%;
-      text-align: left;
-      margin-bottom: 4px;
-    }
-
-    .chat-badge {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      margin-right: 4px;
-      background: #666;
-    }
-
-    .chat-button {
-      width: 100%;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: rgba(13,16,24,0.9);
-      padding: 6px 8px;
-      font-size: 12px;
-      color: var(--muted);
+    .chat-item {
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      cursor: pointer;
+      gap: 12px;
+      transition: background 0.2s;
+      margin-bottom: 5px;
     }
+    .chat-item:hover { background: rgba(255,255,255,0.05); }
+    .chat-item.active { background: rgba(10, 132, 255, 0.2); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+    .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
 
-    .chat-button .main {
+    /* CHAT AREA */
+    main {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-    }
-
-    .chat-button .name {
-      font-weight: 500;
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .chat-button .meta {
-      font-size: 11px;
-      color: var(--muted);
-      display: flex;
-      gap: 4px;
-    }
-
-    .chat-button.active {
-      border-color: var(--accent);
-      background: rgba(78,161,255,0.1);
-    }
-
-    .chat-button .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #555;
-    }
-
-    .chat-button.connected .status-dot {
-      background: #29cc6a;
-    }
-
-    section.chat-panel {
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      background: radial-gradient(circle at top right, #202943 0, var(--panel) 60%);
+      position: relative;
+      background: rgba(0,0,0,0.1);
     }
 
     .chat-header {
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      padding: 8px 10px;
-      background: rgba(9,12,20,0.9);
+      padding: 15px 20px;
+      border-bottom: 1px solid var(--glass-border);
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      font-size: 12px;
+      align-items: center;
+      background: rgba(30,30,30,0.4);
+      backdrop-filter: blur(10px);
     }
+    .chat-meta h2 { margin: 0; font-size: 16px; }
+    .chat-meta p { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 
-    .chat-header-left {
+    .header-controls { display: flex; gap: 10px; align-items: center; }
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 8px;
+      border-radius: 50%;
+      transition: color 0.2s, background 0.2s;
+    }
+    .icon-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.1); }
+    .icon-btn.active { color: var(--accent); background: rgba(10,132,255,0.15); }
+
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
-    }
-
-    .chat-title {
-      font-weight: 500;
-    }
-
-    .chat-subtitle {
-      color: var(--muted);
-      font-size: 11px;
-    }
-
-    .chat-header-right {
-      display: flex;
-      align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .toggle-row input[type="checkbox"] {
-      margin: 0;
-    }
-
-    .passphrase-input {
-      max-width: 180px;
-    }
-
-    .messages {
-      margin-top: 8px;
-      flex: 1;
-      min-height: 0;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: rgba(5,7,12,0.95);
-      padding: 8px 8px 6px;
-      overflow-y: auto;
-      font-size: 13px;
-    }
-
-    .msg-row {
-      display: flex;
-      margin-bottom: 4px;
     }
 
     .msg {
-      max-width: 75%;
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid transparent;
-      background: rgba(23,30,46,0.9);
-      display: inline-flex;
-      flex-direction: column;
-      gap: 4px;
-      word-wrap: break-word;
-      word-break: break-word;
-    }
-
-    .msg.out {
-      margin-left: auto;
-      background: rgba(47,158,68,0.12);
-      border-color: rgba(47,158,68,0.6);
-      align-items: flex-end;
-    }
-
-    .msg.in {
-      margin-right: auto;
-      background: rgba(31,92,240,0.12);
-      border-color: rgba(31,92,240,0.6);
-      align-items: flex-start;
-    }
-
-    .msg.system {
-      margin: 4px auto;
-      max-width: 90%;
-      background: transparent;
-      border-color: transparent;
-      color: var(--system);
-      font-size: 11px;
-      text-align: center;
-    }
-
-    .msg-text {
-      white-space: pre-wrap;
-    }
-
-    .msg-meta {
-      font-size: 10px;
-      color: var(--muted);
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .msg-file a {
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 12px;
-    }
-
-    .msg-file img {
-      max-width: 220px;
-      max-height: 180px;
-      display: block;
-      border-radius: 6px;
-      margin-bottom: 4px;
-    }
-
-    form.message-form {
-      margin-top: 6px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .message-form .file-input-wrapper {
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.4;
       position: relative;
-      overflow: hidden;
-      display: inline-block;
+      word-wrap: break-word;
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
-    .message-form .file-input-wrapper input[type="file"] {
-      position: absolute;
-      top: 0;
-      left: 0;
-      opacity: 0;
+    .msg.in { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
+    .msg.out { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; color: white; }
+    .msg.system { align-self: center; background: rgba(255,255,255,0.1); font-size: 11px; padding: 4px 10px; border-radius: 10px; color: var(--text-muted); max-width: 90%; }
+    
+    .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; }
+    .msg-meta { font-size: 10px; opacity: 0.6; margin-top: 4px; display: flex; justify-content: flex-end; gap: 4px; }
+
+    /* Ghost Mode Fade */
+    .ghost-fade { animation: fadeOut 30s forwards; }
+    @keyframes fadeOut { 0% { opacity: 1; } 90% { opacity: 0.1; filter: blur(2px); } 100% { opacity: 0; display: none; } }
+
+    .input-area {
+      padding: 15px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(30,30,30,0.4);
+    }
+    .file-btn {
+      color: var(--accent);
+      background: rgba(10,132,255,0.1);
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
       cursor: pointer;
-      height: 100%;
-      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
     }
-
-    .message-form .text-input {
+    .file-btn:hover { background: rgba(10,132,255,0.2); }
+    
+    .msg-input {
       flex: 1;
-      min-width: 120px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 10px 15px;
+      color: white;
+      outline: none;
+      font-size: 14px;
     }
+    .msg-input:focus { border-color: var(--accent); }
 
-    .status-line {
-      margin-top: 2px;
-      font-size: 11px;
-      color: var(--muted);
+    /* --- MODALS --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(5px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
     }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    
+    .modal {
+      background: #1c1c1e;
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 25px;
+      width: 90%;
+      max-width: 350px;
+      text-align: center;
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .modal-overlay.open .modal { transform: scale(1); }
+    
+    .qr-container { background: white; padding: 15px; border-radius: 10px; margin: 15px auto; width: fit-content; }
+    .modal h3 { margin-top: 0; }
+    .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+    .btn-sec { background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      #app { border-radius: 0; height: 100%; width: 100%; }
+      aside { position: absolute; z-index: 50; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #151515; }
+      aside.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+      .mobile-menu-btn { display: block; }
+    }
+    @media (min-width: 769px) { .mobile-menu-btn { display: none; } }
 
-    @media (max-width: 720px) {
-      main.layout {
-        grid-template-columns: 1fr;
-      }
-      aside.sidebar {
-        max-height: 220px;
-      }
-      .messages {
-        height: 40vh;
-      }
-    }
+    .hidden-file { display: none; }
   </style>
 </head>
 <body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
+      <h1>PepeChat</h1>
+      <p>Secure, P2P, Encrypted. No Servers.</p>
+      
+      <form id="loginForm">
+        <div class="input-group">
+          <i class="fa-solid fa-user"></i>
+          <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
+        </div>
+        <button type="submit" class="btn-primary">Start Chatting</button>
+        <div style="margin-top: 15px; font-size: 12px; color: #666;">
+          Or <a href="#" id="genRandomLink" style="color: var(--accent);">generate random</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
   <div id="app">
-    <header>
-      <div class="title">P2P Chat · WebRTC · Demo</div>
-      <div class="identity">
-        You are <strong id="myName"></strong>
-        <span>· ID: <span id="myPeerId" class="mono">…connecting…</span></span>
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="user-profile">
+          <div class="avatar" id="myAvatar">?</div>
+          <div class="user-info">
+            <h3 id="myNameDisplay">Guest</h3>
+            <span id="myIdDisplay">...</span>
+          </div>
+        </div>
       </div>
-    </header>
-    <main class="layout">
-      <aside class="sidebar">
-        <div class="panel">
-          <h2>Connection</h2>
-          <div class="field">
-            <label>Your random name</label>
-            <div id="myNameDisplay" class="mono"></div>
-          </div>
-          <div class="field">
-            <label>Your Peer ID (share this)</label>
-            <div class="my-id">
-              <span id="myPeerIdBox" class="mono">…</span>
-              <button type="button" id="copyIdBtn" class="small secondary">Copy</button>
-            </div>
-          </div>
-          <form id="connectForm">
-            <div class="field">
-              <label>Remote Peer ID</label>
-              <input type="text" id="remoteId" placeholder="Paste Peer ID from friend" autocomplete="off" />
-            </div>
-            <div class="field-row">
-              <button type="submit">Connect</button>
-            </div>
-          </form>
+      
+      <div class="sidebar-actions">
+        <button class="action-btn" id="showQrBtn">
+          <i class="fa-solid fa-qrcode"></i> Share QR
+        </button>
+        <button class="action-btn" id="addPeerBtn">
+          <i class="fa-solid fa-plus"></i> New Chat
+        </button>
+      </div>
+
+      <div class="chat-list" id="chatList">
+        <!-- Chat items injected here -->
+      </div>
+    </aside>
+
+    <main>
+      <div class="chat-header">
+        <button class="icon-btn mobile-menu-btn" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
+        <div class="chat-meta">
+          <h2 id="chatTitle">No Chat Selected</h2>
+          <p id="chatStatus">Waiting...</p>
         </div>
-
-        <div class="panel" style="flex: 1; min-height: 0; display:flex; flex-direction:column;">
-          <h2>Chats</h2>
-          <ul id="chatList" class="chat-list"></ul>
-          <div class="status-line" id="sidebarHint">New connections will appear here.</div>
+        <div class="header-controls">
+          <button class="icon-btn" id="ghostToggle" title="Ghost Mode (Ephemeral Messages)">
+            <i class="fa-solid fa-ghost"></i>
+          </button>
+          <button class="icon-btn" id="keySettingsBtn" title="Encryption Settings">
+            <i class="fa-solid fa-key"></i>
+          </button>
+          <button class="icon-btn" id="clearChatBtn" title="Clear History">
+            <i class="fa-solid fa-trash"></i>
+          </button>
         </div>
-      </aside>
+      </div>
 
-      <section class="chat-panel">
-        <div class="chat-header">
-          <div class="chat-header-left">
-            <div class="chat-title" id="activeChatTitle">No chat selected</div>
-            <div class="chat-subtitle" id="activeChatSubtitle">Connect to a peer to start chatting.</div>
-          </div>
-          <div class="chat-header-right">
-            <div class="toggle-row">
-              <input type="checkbox" id="encryptionToggle" checked />
-              <label for="encryptionToggle">Extra encryption</label>
-            </div>
-            <div class="toggle-row">
-              <span>Passphrase:</span>
-              <input type="text" id="passphraseInput" class="passphrase-input" value="changeme" />
-            </div>
-            <button type="button" id="clearChatBtn" class="small secondary">Clear chat (local)</button>
-          </div>
-        </div>
+      <div class="messages-container" id="messages">
+        <div class="msg system">Select a chat or share your QR code to connect.</div>
+      </div>
 
-        <div id="messages" class="messages"></div>
-
-        <form id="messageForm" class="message-form">
-          <div class="file-input-wrapper">
-            <button type="button" class="secondary small">File / Image</button>
-            <input type="file" id="fileInput" multiple />
-          </div>
-          <input type="text" id="messageInput" class="text-input" placeholder="Type a message and hit Enter…" autocomplete="off" />
-          <button type="submit">Send</button>
-        </form>
-        <div class="status-line" id="statusLine">Waiting for PeerJS to connect…</div>
-      </section>
+      <form class="input-area" id="msgForm">
+        <button type="button" class="file-btn" id="uploadBtn"><i class="fa-solid fa-paperclip"></i></button>
+        <input type="file" id="fileInput" class="hidden-file" multiple>
+        <input type="text" class="msg-input" id="msgInput" placeholder="iMessage..." autocomplete="off">
+        <button type="submit" class="file-btn" style="background: var(--accent); color: white;">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
     </main>
   </div>
 
-  <!-- PeerJS (WebRTC wrapper) -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- MODALS -->
+  
+  <!-- QR Modal -->
+  <div class="modal-overlay" id="qrModal">
+    <div class="modal">
+      <h3>Scan to Connect</h3>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Scan with camera or share URL. Key is included.</p>
+      <div class="qr-container" id="qrCanvas"></div>
+      <input type="text" id="shareUrlInput" readonly style="width:100%; background:#333; border:none; color:#888; font-size:10px; padding:5px; border-radius:4px; margin-bottom:10px;">
+      <div class="modal-actions">
+        <button class="btn-sec" id="copyLinkBtn">Copy Link</button>
+        <button class="btn-sec" onclick="closeModals()">Close</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- App logic -->
+  <!-- Add Peer Modal -->
+  <div class="modal-overlay" id="addPeerModal">
+    <div class="modal">
+      <h3>Connect to Peer</h3>
+      <input type="text" id="remoteIdInput" class="login-input" placeholder="Enter Peer ID" style="margin: 15px 0;">
+      <div class="modal-actions">
+        <button class="btn-primary" id="connectSubmitBtn">Connect</button>
+        <button class="btn-sec" onclick="closeModals()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Settings Modal -->
+  <div class="modal-overlay" id="keyModal">
+    <div class="modal">
+      <h3>Encryption Key</h3>
+      <p style="font-size: 12px; color: #aaa;">Change key mid-chat. Peer will be notified.</p>
+      <input type="text" id="keyInput" class="login-input" placeholder="Secret Passphrase" style="margin: 15px 0;">
+      <div class="modal-actions">
+        <button class="btn-primary" id="saveKeyBtn">Update & Notify</button>
+        <button class="btn-sec" onclick="closeModals()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-  (function() {
-    'use strict';
+    (function() {
+      'use strict';
 
-    var STORAGE_KEY = 'p2pChat_v1';
-    var MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+      // --- CONFIG & STATE ---
+      const APP_URL = 'https://nomsams.github.io/pepechat/'; // Ensure this matches your deployment
+      const STORAGE_KEY = 'pepechat_v3_data';
+      
+      let peer = null;
+      let myId = null;
+      let chats = new Map(); // chatId -> ChatObject
+      let activeChatId = null;
+      let ghostMode = false;
 
-    var peer = null;
-    var myPeerId = null;
-    var myName = null;
+      // --- DOM ELEMENTS ---
+      const els = {
+        loginScreen: document.getElementById('loginScreen'),
+        loginForm: document.getElementById('loginForm'),
+        customIdInput: document.getElementById('customIdInput'),
+        genRandomLink: document.getElementById('genRandomLink'),
+        app: document.getElementById('app'),
+        sidebar: document.getElementById('sidebar'),
+        menuBtn: document.getElementById('menuBtn'),
+        
+        // Sidebar
+        myAvatar: document.getElementById('myAvatar'),
+        myNameDisplay: document.getElementById('myNameDisplay'),
+        myIdDisplay: document.getElementById('myIdDisplay'),
+        chatList: document.getElementById('chatList'),
+        showQrBtn: document.getElementById('showQrBtn'),
+        addPeerBtn: document.getElementById('addPeerBtn'),
 
-    var chats = new Map();
-    var activeChatId = null;
+        // Chat Area
+        chatTitle: document.getElementById('chatTitle'),
+        chatStatus: document.getElementById('chatStatus'),
+        messages: document.getElementById('messages'),
+        msgForm: document.getElementById('msgForm'),
+        msgInput: document.getElementById('msgInput'),
+        fileInput: document.getElementById('fileInput'),
+        uploadBtn: document.getElementById('uploadBtn'),
+        ghostToggle: document.getElementById('ghostToggle'),
+        keySettingsBtn: document.getElementById('keySettingsBtn'),
+        clearChatBtn: document.getElementById('clearChatBtn'),
 
-    var els = {};
-
-    document.addEventListener('DOMContentLoaded', init);
-
-    function init() {
-      cacheDom();
-      myName = generateRandomName();
-      els.myName.textContent = myName;
-      els.myNameDisplay.textContent = myName;
-      initPeer();
-      loadFromStorage();
-      bindEvents();
-    }
-
-    function cacheDom() {
-      els.myName = document.getElementById('myName');
-      els.myNameDisplay = document.getElementById('myNameDisplay');
-      els.myPeerId = document.getElementById('myPeerId');
-      els.myPeerIdBox = document.getElementById('myPeerIdBox');
-      els.copyIdBtn = document.getElementById('copyIdBtn');
-      els.connectForm = document.getElementById('connectForm');
-      els.remoteId = document.getElementById('remoteId');
-      els.chatList = document.getElementById('chatList');
-      els.sidebarHint = document.getElementById('sidebarHint');
-      els.activeChatTitle = document.getElementById('activeChatTitle');
-      els.activeChatSubtitle = document.getElementById('activeChatSubtitle');
-      els.encryptionToggle = document.getElementById('encryptionToggle');
-      els.passphraseInput = document.getElementById('passphraseInput');
-      els.clearChatBtn = document.getElementById('clearChatBtn');
-      els.messages = document.getElementById('messages');
-      els.messageForm = document.getElementById('messageForm');
-      els.messageInput = document.getElementById('messageInput');
-      els.fileInput = document.getElementById('fileInput');
-      els.statusLine = document.getElementById('statusLine');
-    }
-
-    function bindEvents() {
-      els.connectForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var remoteId = (els.remoteId.value || '').trim();
-        if (!remoteId) return;
-        connectToPeer(remoteId);
-      });
-
-      els.copyIdBtn.addEventListener('click', function() {
-        if (!myPeerId) return;
-        navigator.clipboard && navigator.clipboard.writeText(myPeerId).then(function() {
-          setStatus('Copied your ID to the clipboard.');
-        }).catch(function() {
-          setStatus('Could not copy to clipboard.');
-        });
-      });
-
-      els.messageForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var text = (els.messageInput.value || '').trim();
-        if (!text) return;
-        els.messageInput.value = '';
-        sendTextMessage(text);
-      });
-
-      els.fileInput.addEventListener('change', function(e) {
-        var files = Array.prototype.slice.call(e.target.files || []);
-        e.target.value = '';
-        if (!files.length) return;
-        sendFiles(files);
-      });
-
-      els.encryptionToggle.addEventListener('change', function() {
-        var chat = getActiveChat();
-        if (!chat) return;
-        chat.encryptionEnabled = !!els.encryptionToggle.checked;
-        persistState();
-      });
-
-      els.passphraseInput.addEventListener('change', function() {
-        var chat = getActiveChat();
-        if (!chat) return;
-        chat.passphrase = els.passphraseInput.value || 'changeme';
-        persistState();
-      });
-
-      els.clearChatBtn.addEventListener('click', function() {
-        var chat = getActiveChat();
-        if (!chat) return;
-        chat.messages = [];
-        renderMessages(chat);
-        persistState();
-        setStatus('Chat history cleared locally.');
-      });
-    }
-
-    function initPeer() {
-      try {
-        peer = new Peer();
-      } catch (err) {
-        console.error(err);
-        setStatus('Failed to initialise PeerJS: ' + err);
-        return;
-      }
-
-      peer.on('open', function(id) {
-        myPeerId = id;
-        els.myPeerId.textContent = id;
-        els.myPeerIdBox.textContent = id;
-        setStatus('Ready. Share your ID and connect.');
-      });
-
-      peer.on('connection', function(conn) {
-        registerConnection(conn, true);
-      });
-
-      peer.on('error', function(err) {
-        console.error('Peer error', err);
-        setStatus('PeerJS error: ' + err);
-      });
-    }
-
-    function connectToPeer(remoteId) {
-      if (!peer) {
-        setStatus('PeerJS is not ready yet.');
-        return;
-      }
-      if (!remoteId) return;
-      if (remoteId === myPeerId) {
-        setStatus('You cannot connect to yourself.');
-        return;
-      }
-      var conn;
-      try {
-        conn = peer.connect(remoteId, { reliable: true });
-      } catch (err) {
-        console.error(err);
-        setStatus('Failed to create connection: ' + err);
-        return;
-      }
-      registerConnection(conn, false);
-    }
-
-    function registerConnection(conn, inbound) {
-      var peerId = conn.peer;
-      var chat = getOrCreateChatForPeer(peerId);
-      chat.conn = conn;
-      if (!inbound) {
-        addSystemMessage(chat, 'Connecting to ' + peerId + '…');
-      } else {
-        addSystemMessage(chat, 'Incoming connection from ' + peerId + '.');
-      }
-      renderChatList();
-      if (!activeChatId) {
-        setActiveChat(chat.chatId);
-      } else {
-        updateChatButtonState(chat.chatId);
-      }
-
-      conn.on('open', function() {
-        addSystemMessage(chat, 'Connection opened.');
-        sendHello(chat);
-        if (activeChatId === chat.chatId) {
-          setStatus('Connected to ' + (chat.name || chat.peerId) + '.');
-        }
-        renderChatList();
-      });
-
-      conn.on('data', function(data) {
-        handleIncomingData(chat.chatId, data);
-      });
-
-      conn.on('close', function() {
-        var c = chats.get(chat.chatId);
-        if (!c) return;
-        c.conn = null;
-        addSystemMessage(c, 'Connection closed.');
-        renderChatList();
-        if (activeChatId === c.chatId) {
-          setStatus('Disconnected.');
-        }
-        persistState();
-      });
-
-      conn.on('error', function(err) {
-        console.error('Connection error', err);
-        var c = chats.get(chat.chatId);
-        if (!c) return;
-        addSystemMessage(c, 'Connection error: ' + err);
-        renderChatList();
-        persistState();
-      });
-    }
-
-    function getOrCreateChatForPeer(peerId) {
-      if (chats.has(peerId)) return chats.get(peerId);
-      return createChat(peerId, peerId);
-    }
-
-    function createChat(peerId, name) {
-      var chat = {
-        chatId: peerId,
-        peerId: peerId,
-        name: name || peerId,
-        encryptionEnabled: true,
-        passphrase: 'changeme',
-        messages: [],
-        conn: null
-      };
-      chats.set(chat.chatId, chat);
-      renderChatList();
-      persistState();
-      return chat;
-    }
-
-    function renderChatList() {
-      els.chatList.innerHTML = '';
-      if (!chats.size) {
-        els.sidebarHint.textContent = 'No chats yet. Start one by connecting to a peer.';
-        return;
-      }
-      els.sidebarHint.textContent = '';
-      chats.forEach(function(chat) {
-        var li = document.createElement('li');
-        li.className = 'chat-list-item';
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chat-button';
-        if (chat.chatId === activeChatId) btn.classList.add('active');
-        if (chat.conn && chat.conn.open) btn.classList.add('connected');
-        btn.dataset.chatId = chat.chatId;
-
-        var left = document.createElement('div');
-        left.className = 'main';
-        var nameEl = document.createElement('div');
-        nameEl.className = 'name';
-        nameEl.textContent = chat.name || chat.peerId;
-        var meta = document.createElement('div');
-        meta.className = 'meta';
-        var status = document.createElement('span');
-        status.textContent = chat.conn && chat.conn.open ? 'Online' : 'Not connected';
-        var enc = document.createElement('span');
-        enc.textContent = chat.encryptionEnabled ? 'Encrypted' : 'Plain';
-        meta.appendChild(status);
-        meta.appendChild(document.createTextNode('·'));
-        meta.appendChild(enc);
-        left.appendChild(nameEl);
-        left.appendChild(meta);
-
-        var right = document.createElement('div');
-        right.style.display = 'flex';
-        right.style.alignItems = 'center';
-        right.style.gap = '4px';
-        var dot = document.createElement('div');
-        dot.className = 'status-dot';
-        right.appendChild(dot);
-
-        btn.appendChild(left);
-        btn.appendChild(right);
-
-        btn.addEventListener('click', function() {
-          setActiveChat(chat.chatId);
-        });
-
-        li.appendChild(btn);
-        els.chatList.appendChild(li);
-      });
-    }
-
-    function updateChatButtonState(chatId) {
-      var buttons = els.chatList.querySelectorAll('.chat-button');
-      buttons.forEach(function(btn) {
-        if (btn.dataset.chatId === chatId) {
-          var chat = chats.get(chatId);
-          if (!chat) return;
-          btn.classList.toggle('active', chatId === activeChatId);
-          btn.classList.toggle('connected', !!(chat.conn && chat.conn.open));
-        }
-      });
-    }
-
-    function setActiveChat(chatId) {
-      if (!chatId || !chats.has(chatId)) {
-        activeChatId = null;
-        els.activeChatTitle.textContent = 'No chat selected';
-        els.activeChatSubtitle.textContent = 'Connect to a peer to start chatting.';
-        els.encryptionToggle.checked = true;
-        els.passphraseInput.value = 'changeme';
-        els.messages.innerHTML = '';
-        return;
-      }
-      activeChatId = chatId;
-      renderChatList();
-      var chat = chats.get(chatId);
-      els.activeChatTitle.textContent = chat.name + ' (' + chat.peerId + ')';
-      if (chat.conn && chat.conn.open) {
-        els.activeChatSubtitle.textContent = 'Connected. Messages are sent directly between browsers.';
-        setStatus('Connected to ' + chat.name + '.');
-      } else {
-        els.activeChatSubtitle.textContent = 'Not connected. If your peer connects to you with this ID, the chat will resume.';
-      }
-      els.encryptionToggle.checked = !!chat.encryptionEnabled;
-      els.passphraseInput.value = chat.passphrase || 'changeme';
-      renderMessages(chat);
-    }
-
-    function getActiveChat() {
-      if (!activeChatId) return null;
-      return chats.get(activeChatId) || null;
-    }
-
-    function handleIncomingData(chatId, data) {
-      var chat = chats.get(chatId);
-      if (!chat) return;
-
-      if (!data || typeof data !== 'object') {
-        addSystemMessage(chat, 'Received unsupported data.');
-        return;
-      }
-
-      if (data.kind === 'hello') {
-        if (data.name && typeof data.name === 'string') {
-          chat.name = data.name;
-          renderChatList();
-          if (activeChatId === chat.chatId) {
-            els.activeChatTitle.textContent = chat.name + ' (' + chat.peerId + ')';
-          }
-        }
-        addSystemMessage(chat, 'Handshake received from ' + (chat.name || chat.peerId) + '.');
-        persistState();
-        return;
-      }
-
-      if (data.kind === 'message') {
-        if (data.encrypted) {
-          decryptPayload(chat.passphrase, data.iv, data.ciphertext)
-            .then(function(inner) {
-              handleDecryptedMessage(chat, inner, true);
-            })
-            .catch(function(err) {
-              console.error('Decrypt failed', err);
-              addSystemMessage(chat, 'Failed to decrypt message. Check that you both use the same passphrase.');
-            });
-        } else {
-          handleDecryptedMessage(chat, data, false);
-        }
-        return;
-      }
-    }
-
-    function handleDecryptedMessage(chat, payload, encrypted) {
-      if (!payload || typeof payload !== 'object') return;
-      var now = new Date().toISOString();
-      if (payload.subtype === 'text') {
-        var text = String(payload.text || '');
-        if (!text) return;
-        chat.messages.push({
-          direction: 'in',
-          subtype: 'text',
-          text: text,
-          timestamp: now,
-          encrypted: !!encrypted
-        });
-      } else if (payload.subtype === 'file') {
-        if (!payload.dataBase64) return;
-        var mime = payload.mimeType || 'application/octet-stream';
-        var url = 'data:' + mime + ';base64,' + payload.dataBase64;
-        chat.messages.push({
-          direction: 'in',
-          subtype: 'file',
-          fileName: payload.fileName || 'file',
-          mimeType: mime,
-          dataUrl: url,
-          timestamp: now,
-          encrypted: !!encrypted
-        });
-      } else if (payload.subtype === 'system') {
-        chat.messages.push({
-          direction: 'system',
-          subtype: 'system',
-          text: String(payload.text || ''),
-          timestamp: now,
-          encrypted: false
-        });
-      }
-
-      trimMessages(chat);
-      if (activeChatId === chat.chatId) {
-        renderMessages(chat);
-      }
-      persistState();
-    }
-
-    function sendHello(chat) {
-      if (!chat || !chat.conn || !chat.conn.open) return;
-      var msg = {
-        kind: 'hello',
-        name: myName || 'guest'
-      };
-      try {
-        chat.conn.send(msg);
-      } catch (err) {
-        console.error('Failed to send hello', err);
-      }
-    }
-
-    function sendTextMessage(text) {
-      var chat = getActiveChat();
-      if (!chat) {
-        setStatus('Select a chat first.');
-        return;
-      }
-      if (!chat.conn || !chat.conn.open) {
-        addSystemMessage(chat, 'Cannot send: not connected.');
-        if (activeChatId === chat.chatId) renderMessages(chat);
-        return;
-      }
-
-      var now = new Date().toISOString();
-      var payload = {
-        subtype: 'text',
-        text: text
+        // Modals
+        qrModal: document.getElementById('qrModal'),
+        qrCanvas: document.getElementById('qrCanvas'),
+        shareUrlInput: document.getElementById('shareUrlInput'),
+        copyLinkBtn: document.getElementById('copyLinkBtn'),
+        addPeerModal: document.getElementById('addPeerModal'),
+        remoteIdInput: document.getElementById('remoteIdInput'),
+        connectSubmitBtn: document.getElementById('connectSubmitBtn'),
+        keyModal: document.getElementById('keyModal'),
+        keyInput: document.getElementById('keyInput'),
+        saveKeyBtn: document.getElementById('saveKeyBtn')
       };
 
-      if (chat.encryptionEnabled) {
-        encryptPayload(chat.passphrase, payload)
-          .then(function(enc) {
-            var outgoing = {
-              kind: 'message',
-              encrypted: true,
-              iv: enc.iv,
-              ciphertext: enc.ciphertext
-            };
-            chat.conn.send(outgoing);
-          })
-          .catch(function(err) {
-            console.error('Encrypt failed', err);
-            addSystemMessage(chat, 'Failed to encrypt message.');
+      // --- INITIALIZATION ---
+      document.addEventListener('DOMContentLoaded', () => {
+        checkUrlParams(); // Check if we are deep-linking via QR
+        loadStorage();
+        setupEventListeners();
+        requestNotificationPermission();
+      });
+
+      function checkUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const connectTo = params.get('connect');
+        const keyBase64 = params.get('key');
+
+        if (connectTo) {
+          // Auto-login with random ID if deep linking
+          const randomId = generateRandomId();
+          initApp(randomId, () => {
+            // After init, connect to the peer from URL
+            setTimeout(() => {
+              let decodedKey = 'changeme';
+              if (keyBase64) {
+                try { decodedKey = atob(keyBase64); } catch(e){}
+              }
+              connectToPeer(connectTo, decodedKey);
+              // Clean URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }, 1000);
           });
-      } else {
-        var outgoingPlain = {
-          kind: 'message',
-          encrypted: false,
-          subtype: 'text',
-          text: text
-        };
-        try {
-          chat.conn.send(outgoingPlain);
-        } catch (err) {
-          console.error('Send failed', err);
-          addSystemMessage(chat, 'Failed to send message.');
         }
       }
 
-      chat.messages.push({
-        direction: 'out',
-        subtype: 'text',
-        text: text,
-        timestamp: now,
-        encrypted: !!chat.encryptionEnabled
-      });
-      trimMessages(chat);
-      if (activeChatId === chat.chatId) {
-        renderMessages(chat);
-      }
-      persistState();
-    }
+      function setupEventListeners() {
+        // Login
+        els.loginForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const val = els.customIdInput.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
+          if(val) initApp(val);
+        });
+        els.genRandomLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          initApp(generateRandomId());
+        });
 
-    function sendFiles(files) {
-      var chat = getActiveChat();
-      if (!chat) {
-        setStatus('Select a chat first.');
-        return;
-      }
-      if (!chat.conn || !chat.conn.open) {
-        addSystemMessage(chat, 'Cannot send files: not connected.');
-        if (activeChatId === chat.chatId) renderMessages(chat);
-        return;
-      }
+        // Sidebar
+        els.menuBtn.addEventListener('click', () => els.sidebar.classList.toggle('open'));
+        els.showQrBtn.addEventListener('click', showQrModal);
+        els.addPeerBtn.addEventListener('click', () => openModal(els.addPeerModal));
+        
+        // Chat Actions
+        els.msgForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          sendMessage();
+        });
+        els.uploadBtn.addEventListener('click', () => els.fileInput.click());
+        els.fileInput.addEventListener('change', handleFileUpload);
+        
+        els.ghostToggle.addEventListener('click', () => {
+          ghostMode = !ghostMode;
+          els.ghostToggle.classList.toggle('active', ghostMode);
+          addSystemMessage(getActiveChat(), ghostMode ? "👻 Ghost Mode ON: Messages disappear after 30s." : "Ghost Mode OFF.");
+        });
 
-      var sendNext = function(index) {
-        if (index >= files.length) return;
-        var file = files[index];
-        if (!file) return sendNext(index + 1);
+        els.keySettingsBtn.addEventListener('click', () => {
+          const chat = getActiveChat();
+          if(!chat) return;
+          els.keyInput.value = chat.passphrase;
+          openModal(els.keyModal);
+        });
 
-        if (file.size > MAX_FILE_SIZE) {
-          addSystemMessage(chat, 'Skipping "' + file.name + '" (too large, max ' + Math.round(MAX_FILE_SIZE / (1024 * 1024)) + ' MB).');
-          if (activeChatId === chat.chatId) renderMessages(chat);
-          return sendNext(index + 1);
-        }
-
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-          var arrayBuffer = ev.target && ev.target.result;
-          if (!arrayBuffer) {
-            addSystemMessage(chat, 'Failed to read file ' + file.name + '.');
-            if (activeChatId === chat.chatId) renderMessages(chat);
-            return sendNext(index + 1);
+        els.clearChatBtn.addEventListener('click', () => {
+          const chat = getActiveChat();
+          if(chat) {
+            chat.messages = [];
+            renderMessages(chat);
+            saveStorage();
           }
-          var bytes = new Uint8Array(arrayBuffer);
-          var dataBase64 = bufToBase64(bytes.buffer);
-          var mime = file.type || 'application/octet-stream';
-          var basePayload = {
-            subtype: 'file',
-            fileName: file.name,
-            mimeType: mime,
-            dataBase64: dataBase64
+        });
+
+        // Modal Actions
+        els.connectSubmitBtn.addEventListener('click', () => {
+          const id = els.remoteIdInput.value.trim();
+          if(id) {
+            connectToPeer(id);
+            closeModals();
+          }
+        });
+
+        els.copyLinkBtn.addEventListener('click', () => {
+          els.shareUrlInput.select();
+          document.execCommand('copy');
+          els.copyLinkBtn.textContent = "Copied!";
+          setTimeout(() => els.copyLinkBtn.textContent = "Copy Link", 2000);
+        });
+
+        els.saveKeyBtn.addEventListener('click', () => {
+          const newKey = els.keyInput.value.trim() || 'changeme';
+          const chat = getActiveChat();
+          if(chat) {
+            chat.passphrase = newKey;
+            // Notify peer
+            if(chat.conn && chat.conn.open) {
+              chat.conn.send({ kind: 'system', type: 'key_change', text: 'Peer changed encryption key.' });
+            }
+            addSystemMessage(chat, `Encryption key updated to: ${newKey}`);
+            saveStorage();
+            closeModals();
+          }
+        });
+      }
+
+      // --- CORE LOGIC ---
+
+      function initApp(userId, callback) {
+        myId = userId;
+        els.myNameDisplay.textContent = userId;
+        els.myIdDisplay.textContent = "Connecting...";
+        els.myAvatar.textContent = userId.substring(0,2).toUpperCase();
+        
+        // PeerJS Init
+        peer = new Peer(myId);
+
+        peer.on('open', (id) => {
+          myId = id; // Confirm ID
+          els.myIdDisplay.textContent = "ID: " + id;
+          els.loginScreen.classList.add('hidden');
+          setTimeout(() => els.loginScreen.style.display = 'none', 500);
+          els.app.classList.add('visible');
+          if(callback) callback();
+        });
+
+        peer.on('error', (err) => {
+          if(err.type === 'unavailable-id') {
+            alert('ID taken. Trying a random one.');
+            initApp(generateRandomId(), callback);
+          } else {
+            alert('Connection Error: ' + err.type);
+          }
+        });
+
+        peer.on('connection', (conn) => {
+          handleConnection(conn, true);
+        });
+      }
+
+      function connectToPeer(remoteId, presetKey) {
+        if(remoteId === myId) return;
+        const conn = peer.connect(remoteId);
+        handleConnection(conn, false, presetKey);
+      }
+
+      function handleConnection(conn, inbound, presetKey) {
+        const peerId = conn.peer;
+        let chat = chats.get(peerId);
+        
+        if(!chat) {
+          chat = {
+            id: peerId,
+            name: peerId,
+            passphrase: presetKey || 'changeme',
+            messages: [],
+            conn: conn,
+            unread: 0
+          };
+          chats.set(peerId, chat);
+        } else {
+          chat.conn = conn;
+          if(presetKey) chat.passphrase = presetKey;
+        }
+
+        renderChatList();
+        if(!activeChatId) setActiveChat(peerId);
+
+        conn.on('open', () => {
+          chat.conn.send({ kind: 'hello', name: myId });
+          updateChatStatus(chat);
+          renderChatList();
+        });
+
+        conn.on('data', (data) => handleData(chat, data));
+        
+        conn.on('close', () => {
+          updateChatStatus(chat);
+          renderChatList();
+        });
+      }
+
+      function handleData(chat, data) {
+        if(data.kind === 'hello') {
+          chat.name = data.name; // Update display name
+          renderChatList();
+          if(activeChatId === chat.id) els.chatTitle.textContent = chat.name;
+        } 
+        else if (data.kind === 'system' && data.type === 'key_change') {
+          // Peer changed key
+          const newKey = prompt(`Peer ${chat.name} changed the encryption key. Please enter the new key to continue reading messages:`);
+          if(newKey) chat.passphrase = newKey;
+          saveStorage();
+        }
+        else if (data.kind === 'message') {
+          decryptMessage(chat.passphrase, data).then(payload => {
+            if(!payload) return;
+            
+            const msgObj = {
+              from: 'them',
+              type: payload.type,
+              content: payload.content,
+              fileName: payload.fileName,
+              timestamp: new Date().toISOString(),
+              ghost: payload.ghost
+            };
+            
+            chat.messages.push(msgObj);
+            if(activeChatId === chat.id) {
+              appendMessageToUI(msgObj);
+            } else {
+              chat.unread++;
+              renderChatList();
+              notifyUser(chat.name, "New Message");
+            }
+            saveStorage();
+          });
+        }
+      }
+
+      function sendMessage() {
+        const text = els.msgInput.value.trim();
+        if(!text) return;
+        
+        const chat = getActiveChat();
+        if(!chat || !chat.conn || !chat.conn.open) {
+          alert('Not connected');
+          return;
+        }
+
+        const payload = { type: 'text', content: text, ghost: ghostMode };
+        
+        encryptAndSend(chat, payload);
+        
+        const msgObj = {
+          from: 'me',
+          type: 'text',
+          content: text,
+          timestamp: new Date().toISOString(),
+          ghost: ghostMode
+        };
+        
+        chat.messages.push(msgObj);
+        appendMessageToUI(msgObj);
+        els.msgInput.value = '';
+        saveStorage();
+      }
+
+      function handleFileUpload(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const base64 = ev.target.result.split(',')[1];
+          const chat = getActiveChat();
+          if(!chat) return;
+
+          const payload = { 
+            type: 'file', 
+            content: base64, 
+            fileName: file.name, 
+            mime: file.type,
+            ghost: ghostMode 
           };
 
-          var now = new Date().toISOString();
-          if (chat.encryptionEnabled) {
-            encryptPayload(chat.passphrase, basePayload)
-              .then(function(enc) {
-                var outgoing = {
-                  kind: 'message',
-                  encrypted: true,
-                  iv: enc.iv,
-                  ciphertext: enc.ciphertext
-                };
-                chat.conn.send(outgoing);
-              })
-              .catch(function(err) {
-                console.error('Encrypt failed', err);
-                addSystemMessage(chat, 'Failed to encrypt file "' + file.name + '".');
-              });
-          } else {
-            var outgoingPlain = {
-              kind: 'message',
-              encrypted: false,
-              subtype: 'file',
-              fileName: basePayload.fileName,
-              mimeType: basePayload.mimeType,
-              dataBase64: basePayload.dataBase64
-            };
-            try {
-              chat.conn.send(outgoingPlain);
-            } catch (err) {
-              console.error('Send failed', err);
-              addSystemMessage(chat, 'Failed to send file "' + file.name + '".');
-            }
-          }
+          encryptAndSend(chat, payload);
 
-          var url = 'data:' + mime + ';base64,' + dataBase64;
-          chat.messages.push({
-            direction: 'out',
-            subtype: 'file',
+          const msgObj = {
+            from: 'me',
+            type: 'file',
+            content: ev.target.result, // Data URL for local display
             fileName: file.name,
-            mimeType: mime,
-            dataUrl: url,
-            timestamp: now,
-            encrypted: !!chat.encryptionEnabled
-          });
-          trimMessages(chat);
-          if (activeChatId === chat.chatId) {
-            renderMessages(chat);
-          }
-          persistState();
+            timestamp: new Date().toISOString(),
+            ghost: ghostMode
+          };
+          chat.messages.push(msgObj);
+          appendMessageToUI(msgObj);
+          saveStorage();
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      }
 
-          sendNext(index + 1);
-        };
-        reader.onerror = function() {
-          addSystemMessage(chat, 'Failed to read file ' + file.name + '.');
-          if (activeChatId === chat.chatId) renderMessages(chat);
-          sendNext(index + 1);
-        };
-        reader.readAsArrayBuffer(file);
+      // --- CRYPTO ---
+      async function encryptAndSend(chat, payload) {
+        const key = await getKey(chat.passphrase);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const data = enc.encode(JSON.stringify(payload));
+        
+        const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, data);
+        
+        chat.conn.send({
+          kind: 'message',
+          iv: buf2hex(iv),
+          data: buf2hex(ciphertext)
+        });
+      }
+
+      async function decryptMessage(passphrase, pkg) {
+        try {
+          const key = await getKey(passphrase);
+          const iv = hex2buf(pkg.iv);
+          const data = hex2buf(pkg.data);
+          
+          const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, data);
+          const dec = new TextDecoder();
+          return JSON.parse(dec.decode(decrypted));
+        } catch(e) {
+          console.error("Decryption failed", e);
+          return { type: 'text', content: '🔒 Decryption failed. Key mismatch?' };
+        }
+      }
+
+      async function getKey(pass) {
+        const enc = new TextEncoder();
+        const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), { name: "PBKDF2" }, false, ["deriveKey"]);
+        return crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt: enc.encode("pepechat_salt"), iterations: 1000, hash: "SHA-256" },
+          keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+      }
+
+      // --- UI RENDERING ---
+
+      function renderChatList() {
+        els.chatList.innerHTML = '';
+        chats.forEach(chat => {
+          const div = document.createElement('div');
+          div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
+          const isOnline = chat.conn && chat.conn.open;
+          
+          div.innerHTML = `
+            <div class="avatar">${chat.name.substring(0,2).toUpperCase()}</div>
+            <div style="flex:1; overflow:hidden;">
+              <div style="display:flex; justify-content:space-between;">
+                <span style="font-weight:600; font-size:14px;">${chat.name}</span>
+                ${chat.unread > 0 ? `<span style="background:var(--danger); color:white; border-radius:10px; padding:0 6px; font-size:10px;">${chat.unread}</span>` : ''}
+              </div>
+              <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                ${isOnline ? 'Online' : 'Offline'}
+              </div>
+            </div>
+            <div class="status-dot ${isOnline ? 'online' : ''}"></div>
+          `;
+          div.onclick = () => setActiveChat(chat.id);
+          els.chatList.appendChild(div);
+        });
+      }
+
+      function setActiveChat(id) {
+        activeChatId = id;
+        const chat = chats.get(id);
+        chat.unread = 0;
+        els.chatTitle.textContent = chat.name;
+        updateChatStatus(chat);
+        renderMessages(chat);
+        renderChatList();
+        
+        // Mobile: close sidebar
+        if(window.innerWidth <= 768) els.sidebar.classList.remove('open');
+      }
+
+      function updateChatStatus(chat) {
+        if(activeChatId !== chat.id) return;
+        const isOnline = chat.conn && chat.conn.open;
+        els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline";
+        els.chatStatus.style.color = isOnline ? "var(--success)" : "var(--text-muted)";
+      }
+
+      function renderMessages(chat) {
+        els.messages.innerHTML = '';
+        chat.messages.forEach(appendMessageToUI);
+      }
+
+      function appendMessageToUI(msg) {
+        const div = document.createElement('div');
+        div.className = `msg ${msg.from === 'me' ? 'out' : 'in'} ${msg.ghost ? 'ghost-fade' : ''}`;
+        
+        let contentHtml = '';
+        if(msg.type === 'text') {
+          contentHtml = escapeHtml(msg.content);
+        } else if (msg.type === 'file') {
+          if(msg.mime && msg.mime.startsWith('image/')) {
+            contentHtml = `<img src="${msg.content}" onclick="window.open(this.src)">`;
+          } else {
+            contentHtml = `<a href="${msg.content}" download="${msg.fileName}" style="color:white; text-decoration:underline;">📄 ${msg.fileName}</a>`;
+          }
+        }
+
+        div.innerHTML = `
+          ${contentHtml}
+          <div class="msg-meta">
+            ${msg.ghost ? '👻 ' : ''}
+            ${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          </div>
+        `;
+        
+        els.messages.appendChild(div);
+        els.messages.scrollTop = els.messages.scrollHeight;
+
+        // Remove ghost messages from DOM after animation
+        if(msg.ghost) {
+          setTimeout(() => {
+            if(div.parentNode) div.parentNode.removeChild(div);
+          }, 30000);
+        }
+      }
+
+      function addSystemMessage(chat, text) {
+        if(!chat) return;
+        const msg = { from: 'system', type: 'text', content: text, timestamp: new Date().toISOString() };
+        chat.messages.push(msg);
+        if(activeChatId === chat.id) appendMessageToUI(msg);
+      }
+
+      // --- QR & MODALS ---
+      function showQrModal() {
+        if(!myId) return;
+        const chat = getActiveChat();
+        // If inside a chat, share that specific key, otherwise default
+        const key = chat ? chat.passphrase : 'changeme';
+        const keyObfuscated = btoa(key); // Base64 for URL safety (not encryption)
+        
+        const url = `${APP_URL}?connect=${myId}&key=${keyObfuscated}`;
+        
+        els.qrCanvas.innerHTML = '';
+        new QRCode(els.qrCanvas, {
+          text: url,
+          width: 200,
+          height: 200,
+          colorDark : "#000000",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.H
+        });
+        
+        els.shareUrlInput.value = url;
+        openModal(els.qrModal);
+      }
+
+      // --- HELPERS ---
+      window.openModal = (el) => {
+        el.classList.add('open');
+        el.querySelector('.modal').style.transform = 'scale(1)';
+      };
+      window.closeModals = () => {
+        document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('open'));
       };
 
-      sendNext(0);
-    }
-
-    function addSystemMessage(chat, text) {
-      chat.messages.push({
-        direction: 'system',
-        subtype: 'system',
-        text: text,
-        timestamp: new Date().toISOString(),
-        encrypted: false
-      });
-      trimMessages(chat);
-      if (activeChatId === chat.chatId) {
-        renderMessages(chat);
+      function generateRandomId() {
+        return 'user-' + Math.floor(Math.random() * 100000);
       }
-      persistState();
-    }
 
-    function trimMessages(chat) {
-      var MAX = 500;
-      if (chat.messages.length > MAX) {
-        chat.messages = chat.messages.slice(chat.messages.length - MAX);
+      function escapeHtml(text) {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return text.replace(/[&<>"']/g, m => map[m]);
       }
-    }
 
-    function renderMessages(chat) {
-      els.messages.innerHTML = '';
-      chat.messages.forEach(function(msg) {
-        var row = document.createElement('div');
-        row.className = 'msg-row';
-        var bubble = document.createElement('div');
-        bubble.classList.add('msg');
-        if (msg.direction === 'out') bubble.classList.add('out');
-        else if (msg.direction === 'in') bubble.classList.add('in');
-        else bubble.classList.add('system');
-
-        if (msg.subtype === 'text' || msg.subtype === 'system') {
-          var textEl = document.createElement('div');
-          textEl.className = 'msg-text';
-          textEl.textContent = msg.text || '';
-          bubble.appendChild(textEl);
-        } else if (msg.subtype === 'file') {
-          var fileWrap = document.createElement('div');
-          fileWrap.className = 'msg-file';
-          if (msg.mimeType && msg.mimeType.indexOf('image/') === 0 && msg.dataUrl) {
-            var img = document.createElement('img');
-            img.src = msg.dataUrl;
-            img.alt = msg.fileName || '';
-            fileWrap.appendChild(img);
-          }
-          var link = document.createElement('a');
-          link.href = msg.dataUrl || '#';
-          link.download = msg.fileName || 'file';
-          link.textContent = msg.fileName || 'file';
-          fileWrap.appendChild(link);
-          bubble.appendChild(fileWrap);
-        }
-
-        if (msg.subtype !== 'system') {
-          var meta = document.createElement('div');
-          meta.className = 'msg-meta';
-          var timeSpan = document.createElement('span');
-          timeSpan.textContent = formatTime(msg.timestamp);
-          meta.appendChild(timeSpan);
-          if (msg.encrypted) {
-            var encSpan = document.createElement('span');
-            encSpan.textContent = '· enc';
-            meta.appendChild(encSpan);
-          }
-          bubble.appendChild(meta);
-        }
-
-        row.appendChild(bubble);
-        els.messages.appendChild(row);
-      });
-      els.messages.scrollTop = els.messages.scrollHeight;
-    }
-
-    function formatTime(ts) {
-      try {
-        var d = ts instanceof Date ? ts : new Date(ts);
-        var hh = String(d.getHours()).padStart(2, '0');
-        var mm = String(d.getMinutes()).padStart(2, '0');
-        return hh + ':' + mm;
-      } catch (e) {
-        return '';
+      function buf2hex(buffer) {
+        return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
       }
-    }
+      function hex2buf(hex) {
+        return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      }
 
-    function persistState() {
-      try {
-        var plainChats = [];
-        chats.forEach(function(chat) {
-          plainChats.push({
-            chatId: chat.chatId,
-            peerId: chat.peerId,
-            name: chat.name,
-            encryptionEnabled: !!chat.encryptionEnabled,
-            passphrase: chat.passphrase,
-            messages: chat.messages
-          });
-        });
-        var data = {
-          myName: myName,
-          chats: plainChats
+      function saveStorage() {
+        const data = {
+          myId: myId,
+          chats: Array.from(chats.entries())
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (err) {
-        console.error('persistState failed', err);
       }
-    }
 
-    function loadFromStorage() {
-      try {
-        var raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        var data = JSON.parse(raw);
-        if (data && typeof data.myName === 'string') {
-          myName = data.myName;
-          els.myName.textContent = myName;
-          els.myNameDisplay.textContent = myName;
+      function loadStorage() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw) {
+          try {
+            const data = JSON.parse(raw);
+            // We don't restore myId automatically to allow login screen, 
+            // but we could if we wanted auto-login.
+            // Restoring chats:
+            if(data.chats) {
+              chats = new Map(data.chats);
+              // Reset connections
+              chats.forEach(c => { c.conn = null; c.unread = c.unread || 0; });
+            }
+          } catch(e) {}
         }
-        if (data && Array.isArray(data.chats)) {
-          data.chats.forEach(function(c) {
-            if (!c || !c.chatId || !c.peerId) return;
-            var chat = {
-              chatId: c.chatId,
-              peerId: c.peerId,
-              name: c.name || c.peerId,
-              encryptionEnabled: c.encryptionEnabled !== false,
-              passphrase: typeof c.passphrase === 'string' ? c.passphrase : 'changeme',
-              messages: Array.isArray(c.messages) ? c.messages : [],
-              conn: null
-            };
-            chats.set(chat.chatId, chat);
-          });
-          renderChatList();
-          if (chats.size) {
-            setActiveChat(chats.keys().next().value);
-          }
+      }
+
+      function requestNotificationPermission() {
+        if ("Notification" in window && Notification.permission !== "granted") {
+          Notification.requestPermission();
         }
-      } catch (err) {
-        console.error('Failed to load from storage', err);
       }
-    }
 
-    function setStatus(msg) {
-      els.statusLine.textContent = msg;
-    }
-
-    function generateRandomName() {
-      var adjectives = ['silver', 'quiet', 'wild', 'bright', 'midnight', 'fuzzy', 'lucky', 'swift', 'hidden', 'northern'];
-      var animals = ['otter', 'lynx', 'falcon', 'walrus', 'fox', 'eagle', 'badger', 'panther', 'owl', 'ram'];
-      var a = adjectives[Math.floor(Math.random() * adjectives.length)];
-      var b = animals[Math.floor(Math.random() * animals.length)];
-      var n = Math.floor(Math.random() * 9000) + 1000;
-      return a + '-' + b + '-' + n;
-    }
-
-    function bufToBase64(buf) {
-      var bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-      var binary = '';
-      for (var i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
+      function notifyUser(title, body) {
+        if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+          new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/134/134914.png' });
+        }
       }
-      return btoa(binary);
-    }
 
-    function base64ToBuf(base64) {
-      var binary = atob(base64);
-      var len = binary.length;
-      var bytes = new Uint8Array(len);
-      for (var i = 0; i < len; i++) {
-        bytes[i] = binary.charCodeAt(i);
+      function getActiveChat() {
+        return activeChatId ? chats.get(activeChatId) : null;
       }
-      return bytes.buffer;
-    }
 
-    function getKeyFromPassphrase(passphrase) {
-      var enc = new TextEncoder();
-      var passBytes = enc.encode(passphrase || 'changeme');
-      return crypto.subtle.digest('SHA-256', passBytes).then(function(hash) {
-        return crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-      });
-    }
-
-    function encryptPayload(passphrase, obj) {
-      return getKeyFromPassphrase(passphrase).then(function(key) {
-        var enc = new TextEncoder();
-        var data = enc.encode(JSON.stringify(obj));
-        var iv = crypto.getRandomValues(new Uint8Array(12));
-        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, data).then(function(cipherBuf) {
-          return {
-            iv: bufToBase64(iv.buffer),
-            ciphertext: bufToBase64(cipherBuf)
-          };
-        });
-      });
-    }
-
-    function decryptPayload(passphrase, ivBase64, ciphertextBase64) {
-      return getKeyFromPassphrase(passphrase).then(function(key) {
-        var ivBuf = base64ToBuf(ivBase64);
-        var cipherBuf = base64ToBuf(ciphertextBase64);
-        var iv = new Uint8Array(ivBuf);
-        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipherBuf).then(function(plainBuf) {
-          var dec = new TextDecoder();
-          var json = dec.decode(plainBuf);
-          return JSON.parse(json);
-        });
-      });
-    }
-
-  })();
+    })();
   </script>
 </body>
 </html>
