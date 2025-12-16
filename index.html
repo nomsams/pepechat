@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v5.1 · Zero Trust & Resilient</title>
+  <title>PepeChat v5.2 · Robust & Transparent</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
   
@@ -106,6 +106,9 @@
     .chat-item.active { background: rgba(10, 132, 255, 0.15); border-color: rgba(10,132,255,0.3); }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
     .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.connecting { background: var(--warning); animation: pulse 1s infinite; }
+
+    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
     /* CHAT AREA */
     main {
@@ -176,13 +179,14 @@
       font-family: monospace; font-size: 10px; color: var(--success);
       transition: height 0.3s; display: flex; flex-direction: column;
     }
-    #securityLog.open { height: 150px; }
+    #securityLog.open { height: 180px; }
     .log-header {
       padding: 8px 15px; background: #111; cursor: pointer; display: flex; justify-content: space-between;
     }
     .log-content { padding: 10px; overflow-y: auto; flex: 1; }
     .log-row { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; display: flex; gap: 10px; }
     .log-hash { color: #888; user-select: all; }
+    .log-btn { background: #333; border: 1px solid #555; color: white; font-size: 9px; padding: 2px 6px; cursor: pointer; border-radius: 4px; }
 
     /* VIRTUAL KEYBOARD */
     #virtualKeyboard {
@@ -249,6 +253,13 @@
     }
     @media (min-width: 769px) { .mobile-menu-btn { display: none; } }
     .hidden-file { display: none; }
+    
+    /* Raw Data Box */
+    .raw-data-box {
+      background: #111; border: 1px solid #333; padding: 10px; margin-top: 10px;
+      font-family: monospace; font-size: 10px; color: #aaa; text-align: left;
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    }
   </style>
 </head>
 <body>
@@ -257,7 +268,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v5.1</h1>
+      <h1>PepeChat v5.2</h1>
       <p>Zero Trust · Resilient · Secure</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
@@ -322,7 +333,8 @@
       <!-- SECURITY LOG -->
       <div id="securityLog">
         <div class="log-header" id="logHeader">
-          <span><i class="fa-solid fa-terminal"></i> Security Log (Fingerprints)</span>
+          <span><i class="fa-solid fa-terminal"></i> Security Log</span>
+          <button class="log-btn" id="viewRawDataBtn">View Raw Data</button>
           <i class="fa-solid fa-chevron-up"></i>
         </div>
         <div class="log-content" id="logContent">
@@ -424,6 +436,17 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="rawDataModal">
+    <div class="modal" style="max-width:500px;">
+      <h3>Fingerprint Raw Data</h3>
+      <p style="font-size:11px; color:#888;">This data is hashed to create your unique session ID.</p>
+      <div class="raw-data-box" id="rawDataContent"></div>
+      <div class="modal-actions">
+        <button class="btn-sec" onclick="closeModals()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function() {
       'use strict';
@@ -435,6 +458,7 @@
       let peer = null;
       let myId = null;
       let myFingerprint = null;
+      let myFingerprintRaw = []; // Store raw components
       let chats = new Map(); 
       let activeChatId = null;
       let ghostMode = false;
@@ -486,6 +510,7 @@
         securityLog: document.getElementById('securityLog'),
         logHeader: document.getElementById('logHeader'),
         logContent: document.getElementById('logContent'),
+        viewRawDataBtn: document.getElementById('viewRawDataBtn'),
 
         // VK
         virtualKeyboard: document.getElementById('virtualKeyboard'),
@@ -516,7 +541,10 @@
 
         keyModal: document.getElementById('keyModal'),
         keyInput: document.getElementById('keyInput'),
-        saveKeyBtn: document.getElementById('saveKeyBtn')
+        saveKeyBtn: document.getElementById('saveKeyBtn'),
+
+        rawDataModal: document.getElementById('rawDataModal'),
+        rawDataContent: document.getElementById('rawDataContent')
       };
 
       // --- INITIALIZATION ---
@@ -550,7 +578,6 @@
             }
           });
         } else if (connectTo) {
-          // No user param, generate random
           initApp(generateRandomId(), () => {
              setTimeout(() => {
                 let decodedKey = 'changeme';
@@ -601,7 +628,6 @@
           sendMessage();
         });
         
-        // Fallback for Enter key if form submit doesn't trigger
         els.msgInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -642,8 +668,14 @@
         });
 
         // Logs
-        els.logHeader.addEventListener('click', () => {
-          els.securityLog.classList.toggle('open');
+        els.logHeader.addEventListener('click', (e) => {
+          if(e.target !== els.viewRawDataBtn) {
+            els.securityLog.classList.toggle('open');
+          }
+        });
+        els.viewRawDataBtn.addEventListener('click', () => {
+          els.rawDataContent.textContent = JSON.stringify(myFingerprintRaw, null, 2);
+          openModal(els.rawDataModal);
         });
 
         // Virtual Keyboard
@@ -724,12 +756,14 @@
         const b64 = canvas.toDataURL();
         
         const components = [
-          navigator.userAgent,
-          navigator.language,
-          new Date().getTimezoneOffset(),
-          screen.width + 'x' + screen.height,
-          b64
+          "UserAgent: " + navigator.userAgent,
+          "Language: " + navigator.language,
+          "Timezone: " + new Date().getTimezoneOffset(),
+          "Screen: " + screen.width + 'x' + screen.height,
+          "CanvasHash: " + b64.substring(0, 30) + "..."
         ];
+        
+        myFingerprintRaw = components; // Store for viewing
         
         const str = components.join('||');
         const enc = new TextEncoder();
@@ -750,7 +784,6 @@
         abc: "qwertyuiopasdfghjklzxcvbnm".split(''),
         '123': "1234567890-/:;()$&@".split(''),
         sym: "[]{}#%^*+=_\\|~<>?!.,".split(''),
-        // FIX: Use spread operator to correctly handle emoji surrogate pairs
         emo: [..."😀😂😍😎🤔😭😡👍👎🔥✨❤️💀👻👽🤖💩"]
       };
 
@@ -805,8 +838,10 @@
           if(err.type === 'unavailable-id') {
             alert('ID taken. Trying random.');
             initApp(generateRandomId(), callback);
+          } else if (err.type === 'peer-unavailable') {
+            alert('Peer not found. They might be offline or the ID is incorrect.');
           } else {
-            alert('Error: ' + err.type);
+            console.error(err);
           }
         });
 
@@ -817,7 +852,23 @@
 
       function connectToPeer(remoteId, presetKey) {
         if(remoteId === myId) return;
+        
+        // Create a temporary chat entry to show "Connecting..."
+        let chat = chats.get(remoteId);
+        if(!chat) {
+          chat = createChatObject(remoteId);
+          chats.set(remoteId, chat);
+          renderChatList();
+        }
+        
         const conn = peer.connect(remoteId);
+        
+        // Specific error handling for this connection attempt
+        conn.on('error', (err) => {
+          console.error("Connection Error:", err);
+          alert("Connection failed: " + err);
+        });
+
         handleConnection(conn, false, presetKey);
       }
 
@@ -826,17 +877,7 @@
         let chat = chats.get(peerId);
         
         if(!chat) {
-          chat = {
-            id: peerId,
-            name: peerId,
-            type: 'direct',
-            passphrase: presetKey || 'changeme',
-            messages: [],
-            pendingMessages: [], // Store-and-forward queue
-            conn: conn,
-            unread: 0,
-            fingerprint: null // Stored fingerprint of peer
-          };
+          chat = createChatObject(peerId, presetKey);
           chats.set(peerId, chat);
         } else {
           chat.conn = conn;
@@ -847,7 +888,6 @@
         if(!activeChatId) setActiveChat(peerId);
 
         conn.on('open', () => {
-          // Handshake: Send Name + Fingerprint
           conn.send({ 
             kind: 'handshake', 
             name: myId, 
@@ -857,22 +897,20 @@
           updateChatStatus(chat);
           renderChatList();
           
-          // Resend Pending Messages (PIP)
           if(chat.pendingMessages.length > 0) {
             chat.pendingMessages.forEach(msg => {
-              // Re-encrypt and send
               encryptPayload(chat.passphrase, msg.payload).then(pkg => {
                 conn.send({
                   kind: 'message',
                   iv: pkg.iv,
                   data: pkg.data,
                   senderName: myId,
-                  timestamp: msg.timestamp // Preserve original time
+                  timestamp: msg.timestamp
                 });
               });
               msg.status = 'sent';
             });
-            chat.pendingMessages = []; // Clear queue
+            chat.pendingMessages = [];
             saveStorage();
             if(activeChatId === chat.id) renderMessages(chat);
           }
@@ -880,6 +918,20 @@
 
         conn.on('data', (data) => handleData(conn, data));
         conn.on('close', () => { updateChatStatus(chat); renderChatList(); });
+      }
+
+      function createChatObject(peerId, presetKey) {
+        return {
+          id: peerId,
+          name: peerId,
+          type: 'direct',
+          passphrase: presetKey || 'changeme',
+          messages: [],
+          pendingMessages: [],
+          conn: null,
+          unread: 0,
+          fingerprint: null
+        };
       }
 
       // --- GROUP CHAT LOGIC ---
@@ -906,6 +958,13 @@
         if(chat.participants.includes(peerId)) return;
         
         const conn = peer.connect(peerId);
+        
+        // Handle connection error specifically for adding members
+        conn.on('error', (err) => {
+          alert(`Could not connect to ${peerId}. They might be offline.`);
+          // Remove from participants if added prematurely (logic below adds on open, but good to be safe)
+        });
+
         chat.participants.push(peerId);
         chat.connections[peerId] = conn;
         
@@ -926,7 +985,6 @@
       function handleData(conn, data) {
         let chat = null;
         
-        // Router
         if(data.groupId) {
           chat = chats.get(data.groupId);
           if(!chat) {
@@ -952,17 +1010,13 @@
 
         if(!chat) return;
 
-        // Handshake & Security Check
         if(data.kind === 'handshake') {
           if(chat.type === 'direct') {
             chat.name = data.name;
-            
-            // Fingerprint Verification
             if(settings.secureSession) {
               if(chat.fingerprint && chat.fingerprint !== data.fingerprint) {
-                addSystemMessage(chat, `⚠️ SECURITY ALERT: Fingerprint mismatch! Possible spoofing.`);
-                logSecurity(`ALERT: ${chat.name} fingerprint changed from ${chat.fingerprint} to ${data.fingerprint}`);
-                // Optionally close connection here
+                addSystemMessage(chat, `⚠️ SECURITY ALERT: Fingerprint mismatch!`);
+                logSecurity(`ALERT: ${chat.name} fingerprint changed!`);
               } else {
                 chat.fingerprint = data.fingerprint;
                 logSecurity(`Verified ${chat.name}: ${data.fingerprint.substring(0,16)}...`);
@@ -989,7 +1043,7 @@
               type: payload.type,
               content: payload.content,
               fileName: payload.fileName,
-              timestamp: data.timestamp || new Date().toISOString(), // Use sender timestamp
+              timestamp: data.timestamp || new Date().toISOString(),
               ghost: payload.ghost,
               status: 'received'
             };
@@ -1011,7 +1065,6 @@
         
         const chat = getActiveChat();
         if(!chat) {
-          // Visual feedback if no chat selected
           els.msgForm.classList.add('shake');
           setTimeout(() => els.msgForm.classList.remove('shake'), 500);
           return;
@@ -1020,7 +1073,6 @@
         const payload = { type: 'text', content: text, ghost: ghostMode };
         const timestamp = new Date().toISOString();
         
-        // Optimistic UI update
         const msgObj = {
           from: 'me',
           type: 'text',
@@ -1033,7 +1085,6 @@
         appendMessageToUI(msgObj);
         els.msgInput.value = '';
 
-        // Send Logic
         encryptPayload(chat.passphrase, payload).then(pkg => {
           const msgData = {
             kind: 'message',
@@ -1050,11 +1101,9 @@
               chat.conn.send(msgData);
               msgObj.status = 'sent';
             } else {
-              // Store for later (PIP)
               chat.pendingMessages.push({ payload: payload, timestamp: timestamp });
             }
           } else {
-            // Group: Send to all connected
             chat.participants.forEach(pid => {
               const c = chat.connections[pid];
               if(c && c.open) c.send(msgData);
@@ -1062,7 +1111,6 @@
             msgObj.status = 'sent';
           }
           saveStorage();
-          // Update UI tick
           if(activeChatId === chat.id) renderMessages(chat);
         }).catch(err => {
           console.error("Encryption failed", err);
@@ -1166,6 +1214,9 @@
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
           const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open);
           
+          // Check if connecting
+          const isConnecting = chat.type === 'direct' && !isOnline && chat.conn && !chat.conn.open;
+
           div.innerHTML = `
             <div class="avatar">${chat.name.substring(0,2).toUpperCase()}</div>
             <div style="flex:1; overflow:hidden;">
@@ -1174,10 +1225,10 @@
                 ${chat.unread > 0 ? `<span style="background:var(--danger); color:white; border-radius:10px; padding:0 6px; font-size:10px;">${chat.unread}</span>` : ''}
               </div>
               <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${chat.type === 'group' ? 'Group' : (isOnline ? 'Online' : 'Offline')}
+                ${chat.type === 'group' ? 'Group' : (isOnline ? 'Online' : (isConnecting ? 'Connecting...' : 'Offline'))}
               </div>
             </div>
-            <div class="status-dot ${isOnline ? 'online' : ''}"></div>
+            <div class="status-dot ${isOnline ? 'online' : (isConnecting ? 'connecting' : '')}"></div>
           `;
           div.onclick = () => setActiveChat(chat.id);
           els.chatList.appendChild(div);
@@ -1224,11 +1275,9 @@
         
         let contentHtml = '';
         
-        // ZERO TRUST RENDERING
         if(msg.type === 'text') {
           contentHtml = sanitize(msg.content);
         } else if (msg.type === 'file') {
-          // Do not render image tag. Render a button.
           const btnId = 'reveal-' + Math.random().toString(36).substr(2, 9);
           const isImg = msg.mime && msg.mime.startsWith('image/');
           
@@ -1242,7 +1291,6 @@
 
         const senderInfo = (msg.from === 'them' && msg.senderName) ? `<div style="font-size:10px; color:var(--accent); margin-bottom:2px;">${sanitize(msg.senderName)}</div>` : '';
         
-        // Status Tick
         let statusIcon = '';
         if(msg.from === 'me') {
           if(msg.status === 'pending') statusIcon = '<i class="fa-regular fa-clock"></i>';
@@ -1268,20 +1316,16 @@
         }
       }
 
-      // Zero Trust Reveal Function (Global scope for onclick)
       window.revealContent = (elemId, type, content, fileName) => {
         const el = document.getElementById(elemId);
         if(!el) return;
         
         if(type === 'file') {
-          // Check mime again
-          // If image, replace with img tag
           if(content.startsWith('data:image')) {
              const img = document.createElement('img');
              img.src = content;
              el.parentNode.replaceChild(img, el);
           } else {
-             // Trigger download
              const a = document.createElement('a');
              a.href = content;
              a.download = fileName;
@@ -1314,9 +1358,7 @@
         const key = chat ? chat.passphrase : 'changeme';
         const url = `${APP_URL}?connect=${myId}&key=${btoa(key)}`;
         
-        // FIX: Ensure modal is open before drawing QR code so canvas has dimensions
         openModal(els.qrModal);
-        
         setTimeout(() => {
           els.qrCanvas.innerHTML = '';
           new QRCode(els.qrCanvas, { text: url, width: 200, height: 200 });
