@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat · Secure P2P</title>
+  <title>PepeChat v4 · Secure Group & Virtual Key</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
   
@@ -16,9 +16,9 @@
   <style>
     :root {
       --bg-gradient: radial-gradient(circle at top left, #2c3e50 0%, #000000 100%);
-      --glass-panel: rgba(30, 30, 30, 0.65);
+      --glass-panel: rgba(30, 30, 30, 0.75);
       --glass-border: rgba(255, 255, 255, 0.1);
-      --accent: #0A84FF; /* Apple Blue */
+      --accent: #0A84FF;
       --accent-grad: linear-gradient(135deg, #0A84FF, #0056b3);
       --text-main: #ffffff;
       --text-muted: #8e8e93;
@@ -70,24 +70,17 @@
       max-width: 400px;
       box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     }
-    .login-card h1 { margin: 0 0 10px; font-weight: 700; letter-spacing: -0.5px; }
-    .login-card p { color: var(--text-muted); margin-bottom: 25px; font-size: 14px; }
-    
-    .input-group { position: relative; margin-bottom: 20px; }
-    .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
     .login-input {
       width: 100%;
-      padding: 14px 14px 14px 45px;
+      padding: 14px;
       border-radius: 12px;
       border: 1px solid var(--glass-border);
       background: rgba(0,0,0,0.3);
       color: white;
       font-size: 16px;
       outline: none;
-      transition: border 0.2s;
+      margin-bottom: 15px;
     }
-    .login-input:focus { border-color: var(--accent); }
-
     .btn-primary {
       width: 100%;
       padding: 14px;
@@ -98,9 +91,7 @@
       font-weight: 600;
       font-size: 16px;
       cursor: pointer;
-      transition: transform 0.1s;
     }
-    .btn-primary:active { transform: scale(0.98); }
 
     /* --- MAIN APP LAYOUT --- */
     #app {
@@ -110,7 +101,6 @@
       display: flex;
       background: var(--glass-panel);
       backdrop-filter: blur(30px);
-      -webkit-backdrop-filter: blur(30px);
       box-shadow: 0 0 50px rgba(0,0,0,0.5);
       opacity: 0;
       transform: scale(0.95);
@@ -126,67 +116,26 @@
       flex-direction: column;
       background: rgba(0,0,0,0.2);
     }
-    
-    .sidebar-header {
-      padding: 20px;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
+    .user-profile { display: flex; align-items: center; gap: 10px; }
     .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       background: linear-gradient(45deg, #ff9a9e, #fad0c4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: #333;
-      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; color: #333;
     }
-    .user-info h3 { margin: 0; font-size: 16px; font-weight: 600; }
-    .user-info span { font-size: 12px; color: var(--text-muted); font-family: monospace; }
-
-    .sidebar-actions {
-      padding: 15px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
+    .sidebar-actions { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .action-btn {
-      background: rgba(255,255,255,0.08);
-      border: none;
-      padding: 10px;
-      border-radius: 8px;
-      color: var(--text-main);
-      font-size: 12px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: background 0.2s;
+      background: rgba(255,255,255,0.08); border: none; padding: 10px;
+      border-radius: 8px; color: var(--text-main); font-size: 12px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
     }
     .action-btn:hover { background: rgba(255,255,255,0.15); }
-
-    .chat-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-    }
+    
+    .chat-list { flex: 1; overflow-y: auto; padding: 10px; }
     .chat-item {
-      padding: 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      transition: background 0.2s;
-      margin-bottom: 5px;
+      padding: 12px; border-radius: 10px; cursor: pointer;
+      display: flex; align-items: center; gap: 12px; margin-bottom: 5px;
     }
     .chat-item:hover { background: rgba(255,255,255,0.05); }
     .chat-item.active { background: rgba(10, 132, 255, 0.2); }
@@ -195,149 +144,116 @@
 
     /* CHAT AREA */
     main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      position: relative;
+      flex: 1; display: flex; flex-direction: column; position: relative;
       background: rgba(0,0,0,0.1);
     }
-
     .chat-header {
-      padding: 15px 20px;
-      border-bottom: 1px solid var(--glass-border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(30,30,30,0.4);
-      backdrop-filter: blur(10px);
+      padding: 15px 20px; border-bottom: 1px solid var(--glass-border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(30,30,30,0.4); backdrop-filter: blur(10px);
     }
-    .chat-meta h2 { margin: 0; font-size: 16px; }
-    .chat-meta p { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
-
     .header-controls { display: flex; gap: 10px; align-items: center; }
     .icon-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 16px;
-      padding: 8px;
-      border-radius: 50%;
-      transition: color 0.2s, background 0.2s;
+      background: transparent; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 16px; padding: 8px; border-radius: 50%;
     }
     .icon-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.1); }
     .icon-btn.active { color: var(--accent); background: rgba(10,132,255,0.15); }
 
     .messages-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: flex; flex-direction: column; gap: 8px;
     }
-
     .msg {
-      max-width: 70%;
-      padding: 10px 14px;
-      border-radius: 18px;
-      font-size: 14px;
-      line-height: 1.4;
-      position: relative;
-      word-wrap: break-word;
-      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 70%; padding: 10px 14px; border-radius: 18px;
+      font-size: 14px; line-height: 1.4; position: relative; word-wrap: break-word;
     }
-    @keyframes popIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-
     .msg.in { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
     .msg.out { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; color: white; }
-    .msg.system { align-self: center; background: rgba(255,255,255,0.1); font-size: 11px; padding: 4px 10px; border-radius: 10px; color: var(--text-muted); max-width: 90%; }
+    .msg.system { align-self: center; background: rgba(255,255,255,0.1); font-size: 11px; max-width: 90%; }
     
-    .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; }
+    .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; transition: filter 0.3s; }
+    .msg img.blurred { filter: blur(15px); cursor: pointer; }
+    .msg img.blurred:hover { filter: blur(10px); }
+    
     .msg-meta { font-size: 10px; opacity: 0.6; margin-top: 4px; display: flex; justify-content: flex-end; gap: 4px; }
-
-    /* Ghost Mode Fade */
     .ghost-fade { animation: fadeOut 30s forwards; }
     @keyframes fadeOut { 0% { opacity: 1; } 90% { opacity: 0.1; filter: blur(2px); } 100% { opacity: 0; display: none; } }
 
+    /* INPUT AREA */
     .input-area {
-      padding: 15px;
-      border-top: 1px solid var(--glass-border);
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      background: rgba(30,30,30,0.4);
+      padding: 15px; border-top: 1px solid var(--glass-border);
+      display: flex; gap: 10px; align-items: center; background: rgba(30,30,30,0.4);
     }
-    .file-btn {
-      color: var(--accent);
-      background: rgba(10,132,255,0.1);
-      border: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: 0.2s;
-    }
-    .file-btn:hover { background: rgba(10,132,255,0.2); }
-    
     .msg-input {
-      flex: 1;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 10px 15px;
-      color: white;
-      outline: none;
-      font-size: 14px;
+      flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+      border-radius: 20px; padding: 10px 15px; color: white; outline: none; font-size: 14px;
     }
     .msg-input:focus { border-color: var(--accent); }
 
+    /* --- VIRTUAL KEYBOARD --- */
+    #virtualKeyboard {
+      height: 0; overflow: hidden; transition: height 0.3s ease;
+      background: #1c1c1e; border-top: 1px solid var(--glass-border);
+      display: flex; flex-direction: column;
+    }
+    #virtualKeyboard.open { height: 280px; }
+    
+    .vk-toolbar {
+      display: flex; justify-content: space-between; padding: 5px 10px;
+      background: rgba(255,255,255,0.05); font-size: 12px;
+    }
+    .vk-tabs { display: flex; gap: 10px; }
+    .vk-tab { cursor: pointer; padding: 4px 8px; border-radius: 4px; color: #888; }
+    .vk-tab.active { background: var(--accent); color: white; }
+    
+    .vk-keys {
+      flex: 1; padding: 10px; display: grid; 
+      grid-template-columns: repeat(10, 1fr); gap: 5px;
+      overflow-y: auto; align-content: start;
+    }
+    .vk-key {
+      background: #3a3a3c; color: white; border-radius: 5px;
+      height: 40px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 16px; user-select: none;
+      box-shadow: 0 1px 0 #000; transition: background 0.1s;
+    }
+    .vk-key:active { background: #555; transform: translateY(1px); }
+    .vk-key.wide { grid-column: span 2; }
+    .vk-key.space { grid-column: span 6; }
+    .vk-key.action { background: #4a4a4c; }
+
     /* --- MODALS --- */
     .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(5px);
-      z-index: 200;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
     }
     .modal-overlay.open { opacity: 1; pointer-events: auto; }
-    
     .modal {
-      background: #1c1c1e;
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 25px;
-      width: 90%;
-      max-width: 350px;
-      text-align: center;
-      transform: scale(0.9);
-      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      background: #1c1c1e; border: 1px solid var(--glass-border); border-radius: 20px;
+      padding: 25px; width: 90%; max-width: 350px; text-align: center; transform: scale(0.9);
     }
     .modal-overlay.open .modal { transform: scale(1); }
-    
-    .qr-container { background: white; padding: 15px; border-radius: 10px; margin: 15px auto; width: fit-content; }
-    .modal h3 { margin-top: 0; }
     .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
     .btn-sec { background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
-    
-    /* Responsive */
+
+    /* Toggle Switch */
+    .toggle-switch { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; font-size: 14px; }
+    .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
     @media (max-width: 768px) {
-      #app { border-radius: 0; height: 100%; width: 100%; }
       aside { position: absolute; z-index: 50; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #151515; }
-      aside.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+      aside.open { transform: translateX(0); }
       .mobile-menu-btn { display: block; }
+      .vk-keys { grid-template-columns: repeat(10, 1fr); }
     }
     @media (min-width: 769px) { .mobile-menu-btn { display: none; } }
-
     .hidden-file { display: none; }
   </style>
 </head>
@@ -347,14 +263,10 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat</h1>
-      <p>Secure, P2P, Encrypted. No Servers.</p>
-      
+      <h1>PepeChat v4</h1>
+      <p>Secure Group Chat & Virtual Keyboard</p>
       <form id="loginForm">
-        <div class="input-group">
-          <i class="fa-solid fa-user"></i>
-          <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
-        </div>
+        <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
         <button type="submit" class="btn-primary">Start Chatting</button>
         <div style="margin-top: 15px; font-size: 12px; color: #666;">
           Or <a href="#" id="genRandomLink" style="color: var(--accent);">generate random</a>
@@ -377,17 +289,13 @@
       </div>
       
       <div class="sidebar-actions">
-        <button class="action-btn" id="showQrBtn">
-          <i class="fa-solid fa-qrcode"></i> Share QR
-        </button>
-        <button class="action-btn" id="addPeerBtn">
-          <i class="fa-solid fa-plus"></i> New Chat
-        </button>
+        <button class="action-btn" id="showQrBtn"><i class="fa-solid fa-qrcode"></i> QR</button>
+        <button class="action-btn" id="addPeerBtn"><i class="fa-solid fa-user-plus"></i> Chat</button>
+        <button class="action-btn" id="createGroupBtn"><i class="fa-solid fa-users"></i> Group</button>
+        <button class="action-btn" id="settingsBtn"><i class="fa-solid fa-gear"></i> Settings</button>
       </div>
 
-      <div class="chat-list" id="chatList">
-        <!-- Chat items injected here -->
-      </div>
+      <div class="chat-list" id="chatList"></div>
     </aside>
 
     <main>
@@ -398,42 +306,51 @@
           <p id="chatStatus">Waiting...</p>
         </div>
         <div class="header-controls">
-          <button class="icon-btn" id="ghostToggle" title="Ghost Mode (Ephemeral Messages)">
-            <i class="fa-solid fa-ghost"></i>
-          </button>
-          <button class="icon-btn" id="keySettingsBtn" title="Encryption Settings">
-            <i class="fa-solid fa-key"></i>
-          </button>
-          <button class="icon-btn" id="clearChatBtn" title="Clear History">
-            <i class="fa-solid fa-trash"></i>
-          </button>
+          <button class="icon-btn" id="ghostToggle" title="Ghost Mode"><i class="fa-solid fa-ghost"></i></button>
+          <button class="icon-btn" id="keySettingsBtn" title="Encryption"><i class="fa-solid fa-key"></i></button>
+          <button class="icon-btn" id="clearChatBtn" title="Clear"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>
 
       <div class="messages-container" id="messages">
-        <div class="msg system">Select a chat or share your QR code to connect.</div>
+        <div class="msg system">Select a chat or create a group to begin.</div>
       </div>
 
       <form class="input-area" id="msgForm">
         <button type="button" class="file-btn" id="uploadBtn"><i class="fa-solid fa-paperclip"></i></button>
         <input type="file" id="fileInput" class="hidden-file" multiple>
-        <input type="text" class="msg-input" id="msgInput" placeholder="iMessage..." autocomplete="off">
-        <button type="submit" class="file-btn" style="background: var(--accent); color: white;">
-          <i class="fa-solid fa-paper-plane"></i>
-        </button>
+        <input type="text" class="msg-input" id="msgInput" placeholder="Type message..." autocomplete="off">
+        <button type="button" class="file-btn" id="vkToggleBtn" title="Virtual Keyboard"><i class="fa-solid fa-keyboard"></i></button>
+        <button type="submit" class="file-btn" style="background: var(--accent); color: white;"><i class="fa-solid fa-paper-plane"></i></button>
       </form>
+
+      <!-- VIRTUAL KEYBOARD -->
+      <div id="virtualKeyboard">
+        <div class="vk-toolbar">
+          <div class="vk-tabs">
+            <div class="vk-tab active" data-set="abc">ABC</div>
+            <div class="vk-tab" data-set="123">123</div>
+            <div class="vk-tab" data-set="sym">#+=</div>
+            <div class="vk-tab" data-set="emo">😊</div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="scrambleToggle"> Scramble
+            </label>
+            <i class="fa-solid fa-xmark" id="closeVkBtn" style="cursor:pointer; font-size:14px;"></i>
+          </div>
+        </div>
+        <div class="vk-keys" id="vkKeys"></div>
+      </div>
     </main>
   </div>
 
   <!-- MODALS -->
-  
-  <!-- QR Modal -->
   <div class="modal-overlay" id="qrModal">
     <div class="modal">
       <h3>Scan to Connect</h3>
-      <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Scan with camera or share URL. Key is included.</p>
-      <div class="qr-container" id="qrCanvas"></div>
-      <input type="text" id="shareUrlInput" readonly style="width:100%; background:#333; border:none; color:#888; font-size:10px; padding:5px; border-radius:4px; margin-bottom:10px;">
+      <div class="qr-container" id="qrCanvas" style="background:white; padding:10px; margin:10px auto; width:fit-content;"></div>
+      <input type="text" id="shareUrlInput" readonly style="width:100%; background:#333; border:none; color:#888; font-size:10px; padding:5px; margin-bottom:10px;">
       <div class="modal-actions">
         <button class="btn-sec" id="copyLinkBtn">Copy Link</button>
         <button class="btn-sec" onclick="closeModals()">Close</button>
@@ -441,11 +358,10 @@
     </div>
   </div>
 
-  <!-- Add Peer Modal -->
   <div class="modal-overlay" id="addPeerModal">
     <div class="modal">
       <h3>Connect to Peer</h3>
-      <input type="text" id="remoteIdInput" class="login-input" placeholder="Enter Peer ID" style="margin: 15px 0;">
+      <input type="text" id="remoteIdInput" class="login-input" placeholder="Enter Peer ID">
       <div class="modal-actions">
         <button class="btn-primary" id="connectSubmitBtn">Connect</button>
         <button class="btn-sec" onclick="closeModals()">Cancel</button>
@@ -453,14 +369,51 @@
     </div>
   </div>
 
-  <!-- Key Settings Modal -->
+  <div class="modal-overlay" id="createGroupModal">
+    <div class="modal">
+      <h3>Create Group Chat</h3>
+      <input type="text" id="groupNameInput" class="login-input" placeholder="Group Name">
+      <p style="font-size:12px; color:#888;">You can add members after creating.</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="createGroupSubmitBtn">Create</button>
+        <button class="btn-sec" onclick="closeModals()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="groupAddMemberModal">
+    <div class="modal">
+      <h3>Add Member to Group</h3>
+      <input type="text" id="groupMemberIdInput" class="login-input" placeholder="Peer ID to Add">
+      <div class="modal-actions">
+        <button class="btn-primary" id="groupAddMemberSubmitBtn">Add</button>
+        <button class="btn-sec" onclick="closeModals()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h3>Settings</h3>
+      <div class="toggle-switch">
+        <span>Blur Images by Default</span>
+        <label class="switch">
+          <input type="checkbox" id="blurImagesToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-sec" onclick="closeModals()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="keyModal">
     <div class="modal">
       <h3>Encryption Key</h3>
-      <p style="font-size: 12px; color: #aaa;">Change key mid-chat. Peer will be notified.</p>
-      <input type="text" id="keyInput" class="login-input" placeholder="Secret Passphrase" style="margin: 15px 0;">
+      <input type="text" id="keyInput" class="login-input" placeholder="Secret Passphrase">
       <div class="modal-actions">
-        <button class="btn-primary" id="saveKeyBtn">Update & Notify</button>
+        <button class="btn-primary" id="saveKeyBtn">Update</button>
         <button class="btn-sec" onclick="closeModals()">Close</button>
       </div>
     </div>
@@ -471,14 +424,23 @@
       'use strict';
 
       // --- CONFIG & STATE ---
-      const APP_URL = 'https://nomsams.github.io/pepechat/'; // Ensure this matches your deployment
-      const STORAGE_KEY = 'pepechat_v3_data';
+      const APP_URL = window.location.href.split('?')[0];
+      const STORAGE_KEY = 'pepechat_v4_data';
       
       let peer = null;
       let myId = null;
       let chats = new Map(); // chatId -> ChatObject
       let activeChatId = null;
       let ghostMode = false;
+      
+      let settings = {
+        blurImages: false
+      };
+
+      // Virtual Keyboard State
+      let vkActive = false;
+      let vkSet = 'abc';
+      let vkScramble = false;
 
       // --- DOM ELEMENTS ---
       const els = {
@@ -490,15 +452,16 @@
         sidebar: document.getElementById('sidebar'),
         menuBtn: document.getElementById('menuBtn'),
         
-        // Sidebar
         myAvatar: document.getElementById('myAvatar'),
         myNameDisplay: document.getElementById('myNameDisplay'),
         myIdDisplay: document.getElementById('myIdDisplay'),
         chatList: document.getElementById('chatList'),
+        
         showQrBtn: document.getElementById('showQrBtn'),
         addPeerBtn: document.getElementById('addPeerBtn'),
+        createGroupBtn: document.getElementById('createGroupBtn'),
+        settingsBtn: document.getElementById('settingsBtn'),
 
-        // Chat Area
         chatTitle: document.getElementById('chatTitle'),
         chatStatus: document.getElementById('chatStatus'),
         messages: document.getElementById('messages'),
@@ -506,18 +469,39 @@
         msgInput: document.getElementById('msgInput'),
         fileInput: document.getElementById('fileInput'),
         uploadBtn: document.getElementById('uploadBtn'),
+        vkToggleBtn: document.getElementById('vkToggleBtn'),
         ghostToggle: document.getElementById('ghostToggle'),
         keySettingsBtn: document.getElementById('keySettingsBtn'),
         clearChatBtn: document.getElementById('clearChatBtn'),
+
+        // VK
+        virtualKeyboard: document.getElementById('virtualKeyboard'),
+        vkKeys: document.getElementById('vkKeys'),
+        vkTabs: document.querySelectorAll('.vk-tab'),
+        scrambleToggle: document.getElementById('scrambleToggle'),
+        closeVkBtn: document.getElementById('closeVkBtn'),
 
         // Modals
         qrModal: document.getElementById('qrModal'),
         qrCanvas: document.getElementById('qrCanvas'),
         shareUrlInput: document.getElementById('shareUrlInput'),
         copyLinkBtn: document.getElementById('copyLinkBtn'),
+        
         addPeerModal: document.getElementById('addPeerModal'),
         remoteIdInput: document.getElementById('remoteIdInput'),
         connectSubmitBtn: document.getElementById('connectSubmitBtn'),
+        
+        createGroupModal: document.getElementById('createGroupModal'),
+        groupNameInput: document.getElementById('groupNameInput'),
+        createGroupSubmitBtn: document.getElementById('createGroupSubmitBtn'),
+        
+        groupAddMemberModal: document.getElementById('groupAddMemberModal'),
+        groupMemberIdInput: document.getElementById('groupMemberIdInput'),
+        groupAddMemberSubmitBtn: document.getElementById('groupAddMemberSubmitBtn'),
+
+        settingsModal: document.getElementById('settingsModal'),
+        blurImagesToggle: document.getElementById('blurImagesToggle'),
+
         keyModal: document.getElementById('keyModal'),
         keyInput: document.getElementById('keyInput'),
         saveKeyBtn: document.getElementById('saveKeyBtn')
@@ -525,10 +509,10 @@
 
       // --- INITIALIZATION ---
       document.addEventListener('DOMContentLoaded', () => {
-        checkUrlParams(); // Check if we are deep-linking via QR
+        checkUrlParams();
         loadStorage();
         setupEventListeners();
-        requestNotificationPermission();
+        renderVk();
       });
 
       function checkUrlParams() {
@@ -537,17 +521,14 @@
         const keyBase64 = params.get('key');
 
         if (connectTo) {
-          // Auto-login with random ID if deep linking
           const randomId = generateRandomId();
           initApp(randomId, () => {
-            // After init, connect to the peer from URL
             setTimeout(() => {
               let decodedKey = 'changeme';
               if (keyBase64) {
                 try { decodedKey = atob(keyBase64); } catch(e){}
               }
               connectToPeer(connectTo, decodedKey);
-              // Clean URL
               window.history.replaceState({}, document.title, window.location.pathname);
             }, 1000);
           });
@@ -570,6 +551,8 @@
         els.menuBtn.addEventListener('click', () => els.sidebar.classList.toggle('open'));
         els.showQrBtn.addEventListener('click', showQrModal);
         els.addPeerBtn.addEventListener('click', () => openModal(els.addPeerModal));
+        els.createGroupBtn.addEventListener('click', () => openModal(els.createGroupModal));
+        els.settingsBtn.addEventListener('click', () => openModal(els.settingsModal));
         
         // Chat Actions
         els.msgForm.addEventListener('submit', (e) => {
@@ -582,7 +565,7 @@
         els.ghostToggle.addEventListener('click', () => {
           ghostMode = !ghostMode;
           els.ghostToggle.classList.toggle('active', ghostMode);
-          addSystemMessage(getActiveChat(), ghostMode ? "👻 Ghost Mode ON: Messages disappear after 30s." : "Ghost Mode OFF.");
+          addSystemMessage(getActiveChat(), ghostMode ? "👻 Ghost Mode ON" : "Ghost Mode OFF");
         });
 
         els.keySettingsBtn.addEventListener('click', () => {
@@ -601,36 +584,125 @@
           }
         });
 
-        // Modal Actions
-        els.connectSubmitBtn.addEventListener('click', () => {
-          const id = els.remoteIdInput.value.trim();
-          if(id) {
-            connectToPeer(id);
-            closeModals();
-          }
+        // Virtual Keyboard
+        els.vkToggleBtn.addEventListener('click', () => {
+          vkActive = !vkActive;
+          els.virtualKeyboard.classList.toggle('open', vkActive);
+          els.vkToggleBtn.style.color = vkActive ? 'var(--accent)' : 'var(--accent)';
+        });
+        els.closeVkBtn.addEventListener('click', () => {
+          vkActive = false;
+          els.virtualKeyboard.classList.remove('open');
+        });
+        els.vkTabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            els.vkTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            vkSet = tab.dataset.set;
+            renderVk();
+          });
+        });
+        els.scrambleToggle.addEventListener('change', (e) => {
+          vkScramble = e.target.checked;
+          renderVk();
         });
 
+        // Modals
+        els.connectSubmitBtn.addEventListener('click', () => {
+          const id = els.remoteIdInput.value.trim();
+          if(id) { connectToPeer(id); closeModals(); }
+        });
+        els.createGroupSubmitBtn.addEventListener('click', () => {
+          const name = els.groupNameInput.value.trim();
+          if(name) { createGroup(name); closeModals(); }
+        });
+        els.groupAddMemberSubmitBtn.addEventListener('click', () => {
+          const id = els.groupMemberIdInput.value.trim();
+          if(id) { addMemberToGroup(id); closeModals(); }
+        });
         els.copyLinkBtn.addEventListener('click', () => {
           els.shareUrlInput.select();
           document.execCommand('copy');
           els.copyLinkBtn.textContent = "Copied!";
           setTimeout(() => els.copyLinkBtn.textContent = "Copy Link", 2000);
         });
-
         els.saveKeyBtn.addEventListener('click', () => {
           const newKey = els.keyInput.value.trim() || 'changeme';
           const chat = getActiveChat();
           if(chat) {
             chat.passphrase = newKey;
-            // Notify peer
-            if(chat.conn && chat.conn.open) {
-              chat.conn.send({ kind: 'system', type: 'key_change', text: 'Peer changed encryption key.' });
+            if(chat.type === 'group') {
+              // Notify all group members
+              chat.participants.forEach(pid => {
+                const conn = chat.connections[pid];
+                if(conn && conn.open) conn.send({ kind: 'system', type: 'key_change', text: 'Group key changed.' });
+              });
+            } else if(chat.conn && chat.conn.open) {
+              chat.conn.send({ kind: 'system', type: 'key_change', text: 'Peer changed key.' });
             }
-            addSystemMessage(chat, `Encryption key updated to: ${newKey}`);
+            addSystemMessage(chat, `Key updated: ${newKey}`);
             saveStorage();
             closeModals();
           }
         });
+        
+        // Settings
+        els.blurImagesToggle.addEventListener('change', (e) => {
+          settings.blurImages = e.target.checked;
+          saveStorage();
+          // Re-render current chat to apply blur
+          if(activeChatId) renderMessages(chats.get(activeChatId));
+        });
+      }
+
+      // --- VIRTUAL KEYBOARD LOGIC ---
+      const charSets = {
+        abc: "qwertyuiopasdfghjklzxcvbnm".split(''),
+        '123': "1234567890-/:;()$&@".split(''),
+        sym: "[]{}#%^*+=_\\|~<>?!.,".split(''),
+        emo: "😀😂😍😎🤔😭😡👍👎🔥✨❤️💀👻👽🤖💩".split('') // Array of emojis
+      };
+
+      function renderVk() {
+        els.vkKeys.innerHTML = '';
+        let keys = [...(charSets[vkSet] || [])];
+        
+        if(vkScramble) {
+          // Fisher-Yates Shuffle
+          for (let i = keys.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [keys[i], keys[j]] = [keys[j], keys[i]];
+          }
+        }
+
+        keys.forEach(char => {
+          const btn = document.createElement('div');
+          btn.className = 'vk-key';
+          btn.textContent = char;
+          btn.onclick = () => handleVkInput(char);
+          els.vkKeys.appendChild(btn);
+        });
+
+        // Add functional keys
+        const space = document.createElement('div');
+        space.className = 'vk-key space';
+        space.textContent = 'SPACE';
+        space.onclick = () => handleVkInput(' ');
+        els.vkKeys.appendChild(space);
+
+        const back = document.createElement('div');
+        back.className = 'vk-key wide action';
+        back.innerHTML = '<i class="fa-solid fa-delete-left"></i>';
+        back.onclick = () => {
+          els.msgInput.value = els.msgInput.value.slice(0, -1);
+          if(vkScramble) renderVk();
+        };
+        els.vkKeys.appendChild(back);
+      }
+
+      function handleVkInput(char) {
+        els.msgInput.value += char;
+        if(vkScramble) renderVk();
       }
 
       // --- CORE LOGIC ---
@@ -641,11 +713,10 @@
         els.myIdDisplay.textContent = "Connecting...";
         els.myAvatar.textContent = userId.substring(0,2).toUpperCase();
         
-        // PeerJS Init
         peer = new Peer(myId);
 
         peer.on('open', (id) => {
-          myId = id; // Confirm ID
+          myId = id;
           els.myIdDisplay.textContent = "ID: " + id;
           els.loginScreen.classList.add('hidden');
           setTimeout(() => els.loginScreen.style.display = 'none', 500);
@@ -655,10 +726,10 @@
 
         peer.on('error', (err) => {
           if(err.type === 'unavailable-id') {
-            alert('ID taken. Trying a random one.');
+            alert('ID taken. Trying random.');
             initApp(generateRandomId(), callback);
           } else {
-            alert('Connection Error: ' + err.type);
+            alert('Error: ' + err.type);
           }
         });
 
@@ -675,12 +746,16 @@
 
       function handleConnection(conn, inbound, presetKey) {
         const peerId = conn.peer;
-        let chat = chats.get(peerId);
         
+        // Check if this connection belongs to an existing group logic?
+        // For now, we treat incoming connections as 1-on-1 unless they send a groupId
+        
+        let chat = chats.get(peerId);
         if(!chat) {
           chat = {
             id: peerId,
             name: peerId,
+            type: 'direct',
             passphrase: presetKey || 'changeme',
             messages: [],
             conn: conn,
@@ -696,51 +771,122 @@
         if(!activeChatId) setActiveChat(peerId);
 
         conn.on('open', () => {
-          chat.conn.send({ kind: 'hello', name: myId });
+          conn.send({ kind: 'hello', name: myId });
           updateChatStatus(chat);
           renderChatList();
         });
 
-        conn.on('data', (data) => handleData(chat, data));
-        
-        conn.on('close', () => {
-          updateChatStatus(chat);
-          renderChatList();
-        });
+        conn.on('data', (data) => handleData(conn, data));
+        conn.on('close', () => { updateChatStatus(chat); renderChatList(); });
       }
 
-      function handleData(chat, data) {
+      // --- GROUP CHAT LOGIC ---
+      function createGroup(name) {
+        const groupId = 'group-' + Date.now();
+        const chat = {
+          id: groupId,
+          name: name,
+          type: 'group',
+          passphrase: 'changeme',
+          messages: [],
+          participants: [], // List of peer IDs
+          connections: {}, // Map of peerId -> conn
+          unread: 0
+        };
+        chats.set(groupId, chat);
+        setActiveChat(groupId);
+        addSystemMessage(chat, 'Group created. Add members to start.');
+      }
+
+      function addMemberToGroup(peerId) {
+        const chat = getActiveChat();
+        if(!chat || chat.type !== 'group') return;
+        
+        if(chat.participants.includes(peerId)) return;
+        
+        // Connect to the peer
+        const conn = peer.connect(peerId);
+        chat.participants.push(peerId);
+        chat.connections[peerId] = conn;
+        
+        conn.on('open', () => {
+          // Send handshake indicating this is a group invite/message
+          conn.send({ 
+            kind: 'hello', 
+            name: myId, 
+            groupId: chat.id, 
+            groupName: chat.name 
+          });
+          addSystemMessage(chat, `${peerId} added to group.`);
+        });
+        
+        conn.on('data', (data) => handleData(conn, data));
+        saveStorage();
+      }
+
+      function handleData(conn, data) {
+        // Router: Decide which chat this data belongs to
+        let chat = null;
+        
+        if(data.groupId) {
+          // It's a group message
+          chat = chats.get(data.groupId);
+          if(!chat) {
+            // New group invite? Create it.
+            chat = {
+              id: data.groupId,
+              name: data.groupName || 'Unknown Group',
+              type: 'group',
+              passphrase: 'changeme',
+              messages: [],
+              participants: [conn.peer],
+              connections: { [conn.peer]: conn },
+              unread: 0
+            };
+            chats.set(data.groupId, chat);
+            renderChatList();
+          } else {
+            // Existing group, ensure connection is mapped
+            if(!chat.connections[conn.peer]) {
+              chat.connections[conn.peer] = conn;
+              if(!chat.participants.includes(conn.peer)) chat.participants.push(conn.peer);
+            }
+          }
+        } else {
+          // Direct message
+          chat = chats.get(conn.peer);
+        }
+
+        if(!chat) return; // Should not happen if connection logic is sound
+
         if(data.kind === 'hello') {
-          chat.name = data.name; // Update display name
+          if(chat.type === 'direct') chat.name = data.name;
           renderChatList();
           if(activeChatId === chat.id) els.chatTitle.textContent = chat.name;
         } 
         else if (data.kind === 'system' && data.type === 'key_change') {
-          // Peer changed key
-          const newKey = prompt(`Peer ${chat.name} changed the encryption key. Please enter the new key to continue reading messages:`);
+          const newKey = prompt(`Key change in ${chat.name}. Enter new key:`);
           if(newKey) chat.passphrase = newKey;
           saveStorage();
         }
         else if (data.kind === 'message') {
           decryptMessage(chat.passphrase, data).then(payload => {
             if(!payload) return;
-            
             const msgObj = {
               from: 'them',
+              senderName: data.senderName || conn.peer, // For groups
               type: payload.type,
               content: payload.content,
               fileName: payload.fileName,
               timestamp: new Date().toISOString(),
               ghost: payload.ghost
             };
-            
             chat.messages.push(msgObj);
             if(activeChatId === chat.id) {
               appendMessageToUI(msgObj);
             } else {
               chat.unread++;
               renderChatList();
-              notifyUser(chat.name, "New Message");
             }
             saveStorage();
           });
@@ -752,14 +898,31 @@
         if(!text) return;
         
         const chat = getActiveChat();
-        if(!chat || !chat.conn || !chat.conn.open) {
-          alert('Not connected');
-          return;
-        }
+        if(!chat) return;
 
         const payload = { type: 'text', content: text, ghost: ghostMode };
         
-        encryptAndSend(chat, payload);
+        // Encrypt once
+        encryptPayload(chat.passphrase, payload).then(pkg => {
+          const msgData = {
+            kind: 'message',
+            iv: pkg.iv,
+            data: pkg.data,
+            groupId: chat.type === 'group' ? chat.id : undefined,
+            groupName: chat.type === 'group' ? chat.name : undefined,
+            senderName: myId
+          };
+
+          if(chat.type === 'direct') {
+            if(chat.conn && chat.conn.open) chat.conn.send(msgData);
+          } else {
+            // Broadcast to all group members
+            chat.participants.forEach(pid => {
+              const c = chat.connections[pid];
+              if(c && c.open) c.send(msgData);
+            });
+          }
+        });
         
         const msgObj = {
           from: 'me',
@@ -778,27 +941,37 @@
       function handleFileUpload(e) {
         const file = e.target.files[0];
         if(!file) return;
-        
         const reader = new FileReader();
         reader.onload = (ev) => {
           const base64 = ev.target.result.split(',')[1];
           const chat = getActiveChat();
           if(!chat) return;
 
-          const payload = { 
-            type: 'file', 
-            content: base64, 
-            fileName: file.name, 
-            mime: file.type,
-            ghost: ghostMode 
-          };
-
-          encryptAndSend(chat, payload);
+          const payload = { type: 'file', content: base64, fileName: file.name, mime: file.type, ghost: ghostMode };
+          
+          encryptPayload(chat.passphrase, payload).then(pkg => {
+             const msgData = {
+              kind: 'message',
+              iv: pkg.iv,
+              data: pkg.data,
+              groupId: chat.type === 'group' ? chat.id : undefined,
+              groupName: chat.type === 'group' ? chat.name : undefined,
+              senderName: myId
+            };
+            if(chat.type === 'direct') {
+              if(chat.conn && chat.conn.open) chat.conn.send(msgData);
+            } else {
+              chat.participants.forEach(pid => {
+                const c = chat.connections[pid];
+                if(c && c.open) c.send(msgData);
+              });
+            }
+          });
 
           const msgObj = {
             from: 'me',
             type: 'file',
-            content: ev.target.result, // Data URL for local display
+            content: ev.target.result,
             fileName: file.name,
             timestamp: new Date().toISOString(),
             ghost: ghostMode
@@ -812,19 +985,13 @@
       }
 
       // --- CRYPTO ---
-      async function encryptAndSend(chat, payload) {
-        const key = await getKey(chat.passphrase);
+      async function encryptPayload(pass, payload) {
+        const key = await getKey(pass);
         const iv = crypto.getRandomValues(new Uint8Array(12));
         const enc = new TextEncoder();
         const data = enc.encode(JSON.stringify(payload));
-        
         const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, data);
-        
-        chat.conn.send({
-          kind: 'message',
-          iv: buf2hex(iv),
-          data: buf2hex(ciphertext)
-        });
+        return { iv: buf2hex(iv), data: buf2hex(ciphertext) };
       }
 
       async function decryptMessage(passphrase, pkg) {
@@ -832,14 +999,10 @@
           const key = await getKey(passphrase);
           const iv = hex2buf(pkg.iv);
           const data = hex2buf(pkg.data);
-          
           const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, data);
           const dec = new TextDecoder();
           return JSON.parse(dec.decode(decrypted));
-        } catch(e) {
-          console.error("Decryption failed", e);
-          return { type: 'text', content: '🔒 Decryption failed. Key mismatch?' };
-        }
+        } catch(e) { return { type: 'text', content: '🔒 Decryption failed.' }; }
       }
 
       async function getKey(pass) {
@@ -852,13 +1015,12 @@
       }
 
       // --- UI RENDERING ---
-
       function renderChatList() {
         els.chatList.innerHTML = '';
         chats.forEach(chat => {
           const div = document.createElement('div');
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
-          const isOnline = chat.conn && chat.conn.open;
+          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open);
           
           div.innerHTML = `
             <div class="avatar">${chat.name.substring(0,2).toUpperCase()}</div>
@@ -868,7 +1030,7 @@
                 ${chat.unread > 0 ? `<span style="background:var(--danger); color:white; border-radius:10px; padding:0 6px; font-size:10px;">${chat.unread}</span>` : ''}
               </div>
               <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${isOnline ? 'Online' : 'Offline'}
+                ${chat.type === 'group' ? 'Group Chat' : (isOnline ? 'Online' : 'Offline')}
               </div>
             </div>
             <div class="status-dot ${isOnline ? 'online' : ''}"></div>
@@ -883,16 +1045,21 @@
         const chat = chats.get(id);
         chat.unread = 0;
         els.chatTitle.textContent = chat.name;
-        updateChatStatus(chat);
+        
+        // Show/Hide Add Member button based on chat type
+        if(chat.type === 'group') {
+          els.chatStatus.innerHTML = `<span style="color:var(--accent); cursor:pointer;" onclick="openModal(document.getElementById('groupAddMemberModal'))">+ Add Member</span>`;
+        } else {
+          updateChatStatus(chat);
+        }
+        
         renderMessages(chat);
         renderChatList();
-        
-        // Mobile: close sidebar
         if(window.innerWidth <= 768) els.sidebar.classList.remove('open');
       }
 
       function updateChatStatus(chat) {
-        if(activeChatId !== chat.id) return;
+        if(activeChatId !== chat.id || chat.type === 'group') return;
         const isOnline = chat.conn && chat.conn.open;
         els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline";
         els.chatStatus.style.color = isOnline ? "var(--success)" : "var(--text-muted)";
@@ -912,13 +1079,18 @@
           contentHtml = escapeHtml(msg.content);
         } else if (msg.type === 'file') {
           if(msg.mime && msg.mime.startsWith('image/')) {
-            contentHtml = `<img src="${msg.content}" onclick="window.open(this.src)">`;
+            const blurClass = settings.blurImages ? 'blurred' : '';
+            contentHtml = `<img src="${msg.content}" class="${blurClass}" onclick="this.classList.toggle('blurred')">`;
           } else {
             contentHtml = `<a href="${msg.content}" download="${msg.fileName}" style="color:white; text-decoration:underline;">📄 ${msg.fileName}</a>`;
           }
         }
 
+        // Show sender name in groups
+        const senderInfo = (msg.from === 'them' && msg.senderName) ? `<div style="font-size:10px; color:var(--accent); margin-bottom:2px;">${msg.senderName}</div>` : '';
+
         div.innerHTML = `
+          ${senderInfo}
           ${contentHtml}
           <div class="msg-meta">
             ${msg.ghost ? '👻 ' : ''}
@@ -929,11 +1101,8 @@
         els.messages.appendChild(div);
         els.messages.scrollTop = els.messages.scrollHeight;
 
-        // Remove ghost messages from DOM after animation
         if(msg.ghost) {
-          setTimeout(() => {
-            if(div.parentNode) div.parentNode.removeChild(div);
-          }, 30000);
+          setTimeout(() => { if(div.parentNode) div.parentNode.removeChild(div); }, 30000);
         }
       }
 
@@ -944,94 +1113,51 @@
         if(activeChatId === chat.id) appendMessageToUI(msg);
       }
 
-      // --- QR & MODALS ---
+      // --- HELPERS ---
+      window.openModal = (el) => { el.classList.add('open'); el.querySelector('.modal').style.transform = 'scale(1)'; };
+      window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('open')); };
       function showQrModal() {
         if(!myId) return;
         const chat = getActiveChat();
-        // If inside a chat, share that specific key, otherwise default
         const key = chat ? chat.passphrase : 'changeme';
-        const keyObfuscated = btoa(key); // Base64 for URL safety (not encryption)
-        
-        const url = `${APP_URL}?connect=${myId}&key=${keyObfuscated}`;
-        
+        const url = `${APP_URL}?connect=${myId}&key=${btoa(key)}`;
         els.qrCanvas.innerHTML = '';
-        new QRCode(els.qrCanvas, {
-          text: url,
-          width: 200,
-          height: 200,
-          colorDark : "#000000",
-          colorLight : "#ffffff",
-          correctLevel : QRCode.CorrectLevel.H
-        });
-        
+        new QRCode(els.qrCanvas, { text: url, width: 200, height: 200 });
         els.shareUrlInput.value = url;
         openModal(els.qrModal);
       }
-
-      // --- HELPERS ---
-      window.openModal = (el) => {
-        el.classList.add('open');
-        el.querySelector('.modal').style.transform = 'scale(1)';
-      };
-      window.closeModals = () => {
-        document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('open'));
-      };
-
-      function generateRandomId() {
-        return 'user-' + Math.floor(Math.random() * 100000);
-      }
-
-      function escapeHtml(text) {
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return text.replace(/[&<>"']/g, m => map[m]);
-      }
-
-      function buf2hex(buffer) {
-        return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
-      }
-      function hex2buf(hex) {
-        return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-      }
-
+      function generateRandomId() { return 'user-' + Math.floor(Math.random() * 100000); }
+      function escapeHtml(text) { return text.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m]); }
+      function buf2hex(buffer) { return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join(''); }
+      function hex2buf(hex) { return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16))); }
+      
       function saveStorage() {
-        const data = {
-          myId: myId,
-          chats: Array.from(chats.entries())
-        };
+        // Convert chats map to array, but handle circular refs (connections)
+        const chatsArr = Array.from(chats.entries()).map(([k, v]) => {
+          const { conn, connections, ...rest } = v; // Exclude non-serializable objects
+          return [k, rest];
+        });
+        const data = { myId, chats: chatsArr, settings };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       }
-
+      
       function loadStorage() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if(raw) {
           try {
             const data = JSON.parse(raw);
-            // We don't restore myId automatically to allow login screen, 
-            // but we could if we wanted auto-login.
-            // Restoring chats:
+            if(data.settings) settings = data.settings;
+            els.blurImagesToggle.checked = settings.blurImages;
             if(data.chats) {
               chats = new Map(data.chats);
-              // Reset connections
-              chats.forEach(c => { c.conn = null; c.unread = c.unread || 0; });
+              chats.forEach(c => { 
+                c.conn = null; 
+                c.connections = {}; // Reset group connections
+                c.unread = c.unread || 0; 
+              });
             }
           } catch(e) {}
         }
-      }
-
-      function requestNotificationPermission() {
-        if ("Notification" in window && Notification.permission !== "granted") {
-          Notification.requestPermission();
-        }
-      }
-
-      function notifyUser(title, body) {
-        if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
-          new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/134/134914.png' });
-        }
-      }
-
-      function getActiveChat() {
-        return activeChatId ? chats.get(activeChatId) : null;
       }
 
     })();
