@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v5 · Zero Trust & Resilient</title>
+  <title>PepeChat v5.1 · Zero Trust & Resilient</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
   
@@ -168,6 +168,7 @@
       width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
+    .file-btn:hover { background: rgba(10,132,255,0.2); }
 
     /* SECURITY LOG */
     #securityLog {
@@ -225,6 +226,22 @@
     input:checked + .slider { background-color: var(--accent); }
     input:checked + .slider:before { transform: translateX(16px); }
 
+    /* Animations */
+    .shake { animation: shake 0.5s; }
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+
     @media (max-width: 768px) {
       aside { position: absolute; z-index: 50; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #111; width: 85%; }
       aside.open { transform: translateX(0); }
@@ -240,7 +257,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v5</h1>
+      <h1>PepeChat v5.1</h1>
       <p>Zero Trust · Resilient · Secure</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
@@ -260,7 +277,8 @@
           <div class="avatar" id="myAvatar">?</div>
           <div class="user-info">
             <h3 id="myNameDisplay">Guest</h3>
-            <span id="myIdDisplay">...</span>
+            <span id="myIdDisplay" style="font-size:10px; color:#666;">...</span>
+            <i class="fa-regular fa-copy" id="copyMyIdBtn" style="cursor:pointer; font-size:12px; margin-left:5px; color:var(--accent);" title="Copy ID"></i>
           </div>
         </div>
       </div>
@@ -298,7 +316,7 @@
         <input type="file" id="fileInput" class="hidden-file" multiple>
         <input type="text" class="msg-input" id="msgInput" placeholder="Type message..." autocomplete="off">
         <button type="button" class="file-btn" id="vkToggleBtn" title="Virtual Keyboard"><i class="fa-solid fa-keyboard"></i></button>
-        <button type="submit" class="file-btn" style="background: var(--accent); color: white;"><i class="fa-solid fa-paper-plane"></i></button>
+        <button type="submit" class="file-btn" id="sendBtn" style="background: var(--accent); color: white;"><i class="fa-solid fa-paper-plane"></i></button>
       </form>
 
       <!-- SECURITY LOG -->
@@ -334,7 +352,7 @@
   <div class="modal-overlay" id="qrModal">
     <div class="modal">
       <h3>Scan to Connect</h3>
-      <div class="qr-container" id="qrCanvas" style="background:white; padding:10px; margin:10px auto; width:fit-content;"></div>
+      <div class="qr-container" id="qrCanvas" style="background:white; padding:10px; margin:10px auto; width:fit-content; min-height:200px; min-width:200px;"></div>
       <input type="text" id="shareUrlInput" readonly style="width:100%; background:#333; border:none; color:#888; font-size:10px; padding:5px; margin-bottom:10px;">
       <div class="modal-actions">
         <button class="btn-sec" id="copyLinkBtn">Copy Link</button>
@@ -443,6 +461,7 @@
         myAvatar: document.getElementById('myAvatar'),
         myNameDisplay: document.getElementById('myNameDisplay'),
         myIdDisplay: document.getElementById('myIdDisplay'),
+        copyMyIdBtn: document.getElementById('copyMyIdBtn'),
         chatList: document.getElementById('chatList'),
         
         showQrBtn: document.getElementById('showQrBtn'),
@@ -458,6 +477,7 @@
         fileInput: document.getElementById('fileInput'),
         uploadBtn: document.getElementById('uploadBtn'),
         vkToggleBtn: document.getElementById('vkToggleBtn'),
+        sendBtn: document.getElementById('sendBtn'),
         ghostToggle: document.getElementById('ghostToggle'),
         keySettingsBtn: document.getElementById('keySettingsBtn'),
         deleteChatBtn: document.getElementById('deleteChatBtn'),
@@ -563,11 +583,32 @@
         els.createGroupBtn.addEventListener('click', () => openModal(els.createGroupModal));
         els.settingsBtn.addEventListener('click', () => openModal(els.settingsModal));
         
+        els.copyMyIdBtn.addEventListener('click', () => {
+          if(myId) {
+            navigator.clipboard.writeText(myId);
+            els.copyMyIdBtn.classList.remove('fa-copy');
+            els.copyMyIdBtn.classList.add('fa-check');
+            setTimeout(() => {
+              els.copyMyIdBtn.classList.remove('fa-check');
+              els.copyMyIdBtn.classList.add('fa-copy');
+            }, 1500);
+          }
+        });
+
         // Chat Actions
         els.msgForm.addEventListener('submit', (e) => {
           e.preventDefault();
           sendMessage();
         });
+        
+        // Fallback for Enter key if form submit doesn't trigger
+        els.msgInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+
         els.uploadBtn.addEventListener('click', () => els.fileInput.click());
         els.fileInput.addEventListener('change', handleFileUpload);
         
@@ -672,7 +713,6 @@
 
       // --- FINGERPRINTING ---
       async function generateFingerprint() {
-        // Simple but effective fingerprinting for this context
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         ctx.textBaseline = "top";
@@ -710,7 +750,8 @@
         abc: "qwertyuiopasdfghjklzxcvbnm".split(''),
         '123': "1234567890-/:;()$&@".split(''),
         sym: "[]{}#%^*+=_\\|~<>?!.,".split(''),
-        emo: "😀😂😍😎🤔😭😡👍👎🔥✨❤️💀👻👽🤖💩".split('')
+        // FIX: Use spread operator to correctly handle emoji surrogate pairs
+        emo: [..."😀😂😍😎🤔😭😡👍👎🔥✨❤️💀👻👽🤖💩"]
       };
 
       function renderVk() {
@@ -746,7 +787,7 @@
       function initApp(userId, callback) {
         myId = userId;
         els.myNameDisplay.textContent = userId;
-        els.myIdDisplay.textContent = "Connecting...";
+        els.myIdDisplay.textContent = "ID: " + userId;
         els.myAvatar.textContent = userId.substring(0,2).toUpperCase();
         
         peer = new Peer(myId);
@@ -969,7 +1010,12 @@
         if(!text) return;
         
         const chat = getActiveChat();
-        if(!chat) return;
+        if(!chat) {
+          // Visual feedback if no chat selected
+          els.msgForm.classList.add('shake');
+          setTimeout(() => els.msgForm.classList.remove('shake'), 500);
+          return;
+        }
 
         const payload = { type: 'text', content: text, ghost: ghostMode };
         const timestamp = new Date().toISOString();
@@ -1017,6 +1063,10 @@
           }
           saveStorage();
           // Update UI tick
+          if(activeChatId === chat.id) renderMessages(chat);
+        }).catch(err => {
+          console.error("Encryption failed", err);
+          msgObj.status = 'failed';
           if(activeChatId === chat.id) renderMessages(chat);
         });
       }
@@ -1197,6 +1247,7 @@
         if(msg.from === 'me') {
           if(msg.status === 'pending') statusIcon = '<i class="fa-regular fa-clock"></i>';
           else if(msg.status === 'sent') statusIcon = '<i class="fa-solid fa-check"></i>';
+          else if(msg.status === 'failed') statusIcon = '<i class="fa-solid fa-circle-exclamation" style="color:red"></i>';
         }
 
         div.innerHTML = `
@@ -1262,10 +1313,15 @@
         const chat = getActiveChat();
         const key = chat ? chat.passphrase : 'changeme';
         const url = `${APP_URL}?connect=${myId}&key=${btoa(key)}`;
-        els.qrCanvas.innerHTML = '';
-        new QRCode(els.qrCanvas, { text: url, width: 200, height: 200 });
-        els.shareUrlInput.value = url;
+        
+        // FIX: Ensure modal is open before drawing QR code so canvas has dimensions
         openModal(els.qrModal);
+        
+        setTimeout(() => {
+          els.qrCanvas.innerHTML = '';
+          new QRCode(els.qrCanvas, { text: url, width: 200, height: 200 });
+          els.shareUrlInput.value = url;
+        }, 50);
       }
       
       function generateRandomId() { return 'user-' + Math.floor(Math.random() * 100000); }
@@ -1301,6 +1357,10 @@
             }
           } catch(e) {}
         }
+      }
+
+      function getActiveChat() {
+        return activeChatId ? chats.get(activeChatId) : null;
       }
 
     })();
