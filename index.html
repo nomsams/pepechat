@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v5.2 · Robust & Transparent</title>
+  <title>PepeChat v5.3 · Fixed & Enhanced</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
-  
+
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <!-- PeerJS -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
   <!-- Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -87,6 +89,7 @@
       width: 40px; height: 40px; border-radius: 50%;
       background: linear-gradient(45deg, #444, #666);
       display: flex; align-items: center; justify-content: center; font-weight: bold;
+      flex-shrink: 0;
     }
     .sidebar-actions { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .action-btn {
@@ -141,14 +144,22 @@
     .msg.out { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; color: white; }
     .msg.system { align-self: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); font-size: 11px; max-width: 90%; color: var(--text-muted); }
     
-    /* Zero Trust Reveal Button */
-    .reveal-btn {
-      background: rgba(0,0,0,0.3); border: 1px dashed var(--text-muted);
-      color: var(--text-muted); padding: 15px; border-radius: 8px;
-      cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 8px;
-      width: 100%; justify-content: center;
+    /* File Card Styles */
+    .file-card {
+      background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 10px; margin-top: 5px;
+      display: flex; flex-direction: column; gap: 8px; min-width: 200px;
     }
-    .reveal-btn:hover { background: rgba(0,0,0,0.5); color: white; border-color: white; }
+    .file-header { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; }
+    .file-actions { display: flex; gap: 5px; margin-top: 5px; }
+    .file-btn-small {
+      flex: 1; background: rgba(255,255,255,0.1); border: none; color: white;
+      padding: 6px; border-radius: 6px; cursor: pointer; font-size: 11px;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .file-btn-small:hover { background: rgba(255,255,255,0.2); }
+    .file-info-icon { color: var(--accent); cursor: pointer; margin-left: auto; padding: 0 5px; }
+
     .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; }
 
     .msg-meta { font-size: 10px; opacity: 0.7; margin-top: 4px; display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
@@ -216,6 +227,7 @@
     .modal {
       background: #1c1c1e; border: 1px solid var(--glass-border); border-radius: 20px;
       padding: 25px; width: 90%; max-width: 350px; text-align: center; transform: scale(0.9);
+      max-height: 90vh; overflow-y: auto;
     }
     .modal-overlay.open .modal { transform: scale(1); }
     .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
@@ -260,7 +272,14 @@
       font-family: monospace; font-size: 10px; color: #aaa; text-align: left;
       max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
     }
+    
+    /* File Info Table */
+    .file-info-table { width: 100%; text-align: left; font-size: 12px; margin-top: 10px; border-collapse: collapse; }
+    .file-info-table td { padding: 5px; border-bottom: 1px solid #333; }
+    .file-info-table td:first-child { color: #888; width: 80px; }
+    .file-info-table td:last-child { color: #fff; word-break: break-all; font-family: monospace; }
   </style>
+
 </head>
 <body>
 
@@ -268,7 +287,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v5.2</h1>
+      <h1>PepeChat v5.3</h1>
       <p>Zero Trust · Resilient · Secure</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
@@ -293,7 +312,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="sidebar-actions">
         <button class="action-btn" id="showQrBtn"><i class="fa-solid fa-qrcode"></i> QR</button>
         <button class="action-btn" id="addPeerBtn"><i class="fa-solid fa-user-plus"></i> Chat</button>
@@ -324,7 +343,7 @@
 
       <form class="input-area" id="msgForm">
         <button type="button" class="file-btn" id="uploadBtn"><i class="fa-solid fa-paperclip"></i></button>
-        <input type="file" id="fileInput" class="hidden-file" multiple>
+        <input type="file" id="fileInput" class="hidden-file">
         <input type="text" class="msg-input" id="msgInput" placeholder="Type message..." autocomplete="off">
         <button type="button" class="file-btn" id="vkToggleBtn" title="Virtual Keyboard"><i class="fa-solid fa-keyboard"></i></button>
         <button type="submit" class="file-btn" id="sendBtn" style="background: var(--accent); color: white;"><i class="fa-solid fa-paper-plane"></i></button>
@@ -361,6 +380,7 @@
   </div>
 
   <!-- MODALS -->
+
   <div class="modal-overlay" id="qrModal">
     <div class="modal">
       <h3>Scan to Connect</h3>
@@ -447,6 +467,22 @@
     </div>
   </div>
 
+  <!-- FILE INFO MODAL -->
+  <div class="modal-overlay" id="fileInfoModal">
+    <div class="modal">
+      <h3>File Metadata</h3>
+      <table class="file-info-table">
+        <tr><td>Name</td><td id="fiName"></td></tr>
+        <tr><td>Type</td><td id="fiType"></td></tr>
+        <tr><td>Size</td><td id="fiSize"></td></tr>
+        <tr><td>Hash (SHA256)</td><td id="fiHash"></td></tr>
+      </table>
+      <div class="modal-actions">
+        <button class="btn-sec" onclick="closeModals()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function() {
       'use strict';
@@ -458,13 +494,13 @@
       let peer = null;
       let myId = null;
       let myFingerprint = null;
-      let myFingerprintRaw = []; // Store raw components
+      let myFingerprintRaw = []; 
       let chats = new Map(); 
       let activeChatId = null;
       let ghostMode = false;
       
       let settings = {
-        secureSession: false // Default off
+        secureSession: false 
       };
 
       // Virtual Keyboard State
@@ -544,7 +580,13 @@
         saveKeyBtn: document.getElementById('saveKeyBtn'),
 
         rawDataModal: document.getElementById('rawDataModal'),
-        rawDataContent: document.getElementById('rawDataContent')
+        rawDataContent: document.getElementById('rawDataContent'),
+
+        fileInfoModal: document.getElementById('fileInfoModal'),
+        fiName: document.getElementById('fiName'),
+        fiType: document.getElementById('fiType'),
+        fiSize: document.getElementById('fiSize'),
+        fiHash: document.getElementById('fiHash')
       };
 
       // --- INITIALIZATION ---
@@ -743,7 +785,7 @@
         });
       }
 
-      // --- FINGERPRINTING ---
+      // --- FINGERPRINTING (FIXED) ---
       async function generateFingerprint() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -755,15 +797,16 @@
         ctx.fillText("PepeChatv5", 2, 15);
         const b64 = canvas.toDataURL();
         
+        // REMOVED screen.width/height to fix instability on resize
         const components = [
           "UserAgent: " + navigator.userAgent,
           "Language: " + navigator.language,
           "Timezone: " + new Date().getTimezoneOffset(),
-          "Screen: " + screen.width + 'x' + screen.height,
+          "Concurrency: " + (navigator.hardwareConcurrency || 'unknown'),
           "CanvasHash: " + b64.substring(0, 30) + "..."
         ];
         
-        myFingerprintRaw = components; // Store for viewing
+        myFingerprintRaw = components; 
         
         const str = components.join('||');
         const enc = new TextEncoder();
@@ -845,6 +888,7 @@
           }
         });
 
+        // INCOMING CONNECTION HANDLER
         peer.on('connection', (conn) => {
           handleConnection(conn, true);
         });
@@ -853,17 +897,21 @@
       function connectToPeer(remoteId, presetKey) {
         if(remoteId === myId) return;
         
-        // Create a temporary chat entry to show "Connecting..."
         let chat = chats.get(remoteId);
         if(!chat) {
-          chat = createChatObject(remoteId);
+          chat = createChatObject(remoteId, presetKey);
           chats.set(remoteId, chat);
           renderChatList();
         }
         
+        // If we already have an open connection, don't reconnect unless necessary
+        if(chat.conn && chat.conn.open) {
+          setActiveChat(remoteId);
+          return;
+        }
+
         const conn = peer.connect(remoteId);
         
-        // Specific error handling for this connection attempt
         conn.on('error', (err) => {
           console.error("Connection Error:", err);
           alert("Connection failed: " + err);
@@ -872,6 +920,7 @@
         handleConnection(conn, false, presetKey);
       }
 
+      // FIXED: Robust Connection Handling
       function handleConnection(conn, inbound, presetKey) {
         const peerId = conn.peer;
         let chat = chats.get(peerId);
@@ -880,7 +929,11 @@
           chat = createChatObject(peerId, presetKey);
           chats.set(peerId, chat);
         } else {
-          chat.conn = conn;
+          // If inbound, we ALWAYS accept this as the new active connection
+          // This fixes the "A queues, B sends" bug by ensuring A updates its reference to B
+          if (inbound || !chat.conn || !chat.conn.open) {
+            chat.conn = conn;
+          }
           if(presetKey) chat.passphrase = presetKey;
         }
 
@@ -888,6 +941,9 @@
         if(!activeChatId) setActiveChat(peerId);
 
         conn.on('open', () => {
+          // Force update the connection reference on open to be sure
+          chat.conn = conn;
+          
           conn.send({ 
             kind: 'handshake', 
             name: myId, 
@@ -897,7 +953,9 @@
           updateChatStatus(chat);
           renderChatList();
           
+          // Flush Queue
           if(chat.pendingMessages.length > 0) {
+            addSystemMessage(chat, "Connection re-established. Sending queued messages...");
             chat.pendingMessages.forEach(msg => {
               encryptPayload(chat.passphrase, msg.payload).then(pkg => {
                 conn.send({
@@ -917,7 +975,15 @@
         });
 
         conn.on('data', (data) => handleData(conn, data));
-        conn.on('close', () => { updateChatStatus(chat); renderChatList(); });
+        
+        conn.on('close', () => { 
+          updateChatStatus(chat); 
+          renderChatList(); 
+        });
+        
+        conn.on('error', () => {
+           updateChatStatus(chat);
+        });
       }
 
       function createChatObject(peerId, presetKey) {
@@ -959,10 +1025,8 @@
         
         const conn = peer.connect(peerId);
         
-        // Handle connection error specifically for adding members
         conn.on('error', (err) => {
           alert(`Could not connect to ${peerId}. They might be offline.`);
-          // Remove from participants if added prematurely (logic below adds on open, but good to be safe)
         });
 
         chat.participants.push(peerId);
@@ -1013,6 +1077,9 @@
         if(data.kind === 'handshake') {
           if(chat.type === 'direct') {
             chat.name = data.name;
+            // Ensure connection object is up to date
+            chat.conn = conn;
+            
             if(settings.secureSession) {
               if(chat.fingerprint && chat.fingerprint !== data.fingerprint) {
                 addSystemMessage(chat, `⚠️ SECURITY ALERT: Fingerprint mismatch!`);
@@ -1025,6 +1092,7 @@
               chat.fingerprint = data.fingerprint;
               logSecurity(`Connected ${chat.name}: ${data.fingerprint.substring(0,16)}...`);
             }
+            updateChatStatus(chat);
           }
           renderChatList();
           if(activeChatId === chat.id) els.chatTitle.textContent = chat.name;
@@ -1042,7 +1110,7 @@
               senderName: data.senderName || conn.peer,
               type: payload.type,
               content: payload.content,
-              fileName: payload.fileName,
+              meta: payload.meta, // Contains fileName, size, type, hash
               timestamp: data.timestamp || new Date().toISOString(),
               ghost: payload.ghost,
               status: 'received'
@@ -1119,27 +1187,49 @@
         });
       }
 
-      function handleFileUpload(e) {
+      // --- FILE HANDLING (FIXED & IMPROVED) ---
+      async function handleFileUpload(e) {
         const file = e.target.files[0];
         if(!file) return;
+
+        // 1. Calculate Hash First
+        const arrayBuffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+        const fileHash = buf2hex(hashBuffer);
+
+        // 2. Read as DataURL for sending
         const reader = new FileReader();
         reader.onload = (ev) => {
-          const base64 = ev.target.result.split(',')[1];
+          const base64 = ev.target.result; // Full Data URL
           const chat = getActiveChat();
           if(!chat) return;
 
-          const payload = { type: 'file', content: base64, fileName: file.name, mime: file.type, ghost: ghostMode };
+          const meta = {
+            name: file.name,
+            size: formatBytes(file.size),
+            type: file.type,
+            hash: fileHash
+          };
+
+          const payload = { 
+            type: 'file', 
+            content: base64, 
+            meta: meta,
+            ghost: ghostMode 
+          };
+          
           const timestamp = new Date().toISOString();
 
           const msgObj = {
             from: 'me',
             type: 'file',
-            content: ev.target.result,
-            fileName: file.name,
+            content: base64,
+            meta: meta,
             timestamp: timestamp,
             ghost: ghostMode,
             status: 'pending'
           };
+          
           chat.messages.push(msgObj);
           appendMessageToUI(msgObj);
 
@@ -1174,6 +1264,15 @@
         };
         reader.readAsDataURL(file);
         e.target.value = '';
+      }
+
+      function formatBytes(bytes, decimals = 2) {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
       }
 
       // --- CRYPTO ---
@@ -1278,13 +1377,25 @@
         if(msg.type === 'text') {
           contentHtml = sanitize(msg.content);
         } else if (msg.type === 'file') {
-          const btnId = 'reveal-' + Math.random().toString(36).substr(2, 9);
-          const isImg = msg.mime && msg.mime.startsWith('image/');
+          // Store content in a global map to avoid huge HTML strings
+          const fileId = 'file-' + Math.random().toString(36).substr(2, 9);
+          window[fileId] = { content: msg.content, meta: msg.meta };
+          
+          const isImg = msg.meta.type.startsWith('image/');
           
           contentHtml = `
-            <div class="reveal-btn" onclick="revealContent('${btnId}', '${msg.type}', '${msg.content}', '${msg.fileName}')" id="${btnId}">
-              <i class="fa-solid ${isImg ? 'fa-image' : 'fa-file'}"></i>
-              ${isImg ? 'Click to Load Image' : 'Click to Download File'}
+            <div class="file-card">
+              <div class="file-header">
+                <i class="fa-solid ${isImg ? 'fa-image' : 'fa-file'}"></i>
+                <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${sanitize(msg.meta.name)}</span>
+                <i class="fa-solid fa-circle-info file-info-icon" onclick="showFileInfo('${fileId}')"></i>
+              </div>
+              <div style="font-size:10px; color:#aaa;">${msg.meta.size}</div>
+              <div class="file-actions">
+                ${isImg ? `<button class="file-btn-small" onclick="previewFile('${fileId}')"><i class="fa-solid fa-eye"></i> Preview</button>` : ''}
+                <button class="file-btn-small" onclick="downloadFile('${fileId}')"><i class="fa-solid fa-download"></i> Download</button>
+              </div>
+              <div id="preview-${fileId}" style="display:none; margin-top:5px;"></div>
             </div>
           `;
         }
@@ -1316,23 +1427,37 @@
         }
       }
 
-      window.revealContent = (elemId, type, content, fileName) => {
-        const el = document.getElementById(elemId);
-        if(!el) return;
+      // --- FILE ACTIONS ---
+      window.showFileInfo = (fileId) => {
+        const data = window[fileId];
+        if(!data) return;
+        els.fiName.textContent = data.meta.name;
+        els.fiType.textContent = data.meta.type;
+        els.fiSize.textContent = data.meta.size;
+        els.fiHash.textContent = data.meta.hash;
+        openModal(els.fileInfoModal);
+      };
+
+      window.previewFile = (fileId) => {
+        const data = window[fileId];
+        const container = document.getElementById('preview-' + fileId);
+        if(!data || !container) return;
         
-        if(type === 'file') {
-          if(content.startsWith('data:image')) {
-             const img = document.createElement('img');
-             img.src = content;
-             el.parentNode.replaceChild(img, el);
-          } else {
-             const a = document.createElement('a');
-             a.href = content;
-             a.download = fileName;
-             a.click();
-             el.innerHTML = `<i class="fa-solid fa-check"></i> Downloaded`;
-          }
+        if(container.style.display === 'none') {
+          container.innerHTML = `<img src="${data.content}" style="width:100%; border-radius:8px;">`;
+          container.style.display = 'block';
+        } else {
+          container.style.display = 'none';
         }
+      };
+
+      window.downloadFile = (fileId) => {
+        const data = window[fileId];
+        if(!data) return;
+        const a = document.createElement('a');
+        a.href = data.content;
+        a.download = data.meta.name;
+        a.click();
       };
 
       function addSystemMessage(chat, text) {
@@ -1407,5 +1532,6 @@
 
     })();
   </script>
+
 </body>
 </html>
