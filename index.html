@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v5.3 · Fixed & Enhanced</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>PepeChat v6.0 · Ephemeral & Collaborative</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
@@ -31,6 +31,7 @@
       --warning: #FFD60A;
       --radius-lg: 18px;
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -82,6 +83,7 @@
     aside {
       width: 320px; border-right: 1px solid var(--glass-border);
       display: flex; flex-direction: column; background: rgba(0,0,0,0.3);
+      z-index: 60;
     }
     .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
     .user-profile { display: flex; align-items: center; gap: 10px; }
@@ -112,6 +114,13 @@
     .status-dot.connecting { background: var(--warning); animation: pulse 1s infinite; }
 
     @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+    /* SIDEBAR OVERLAY (Mobile) */
+    .sidebar-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 55;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 
     /* CHAT AREA */
     main {
@@ -169,8 +178,12 @@
 
     /* INPUT AREA */
     .input-area {
-      padding: 15px; border-top: 1px solid var(--glass-border);
+      padding: 15px; 
+      /* Fix 1: Move input up for mobile safe areas */
+      padding-bottom: calc(15px + var(--safe-bottom));
+      border-top: 1px solid var(--glass-border);
       display: flex; gap: 10px; align-items: center; background: rgba(30,30,30,0.6);
+      transition: padding-bottom 0.3s;
     }
     .msg-input {
       flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border);
@@ -204,8 +217,10 @@
       height: 0; overflow: hidden; transition: height 0.3s ease;
       background: #151515; border-top: 1px solid var(--glass-border);
       display: flex; flex-direction: column;
+      /* Fix 2: Lift keyboard slightly */
+      padding-bottom: 20px;
     }
-    #virtualKeyboard.open { height: 280px; }
+    #virtualKeyboard.open { height: 320px; }
     .vk-toolbar { display: flex; justify-content: space-between; padding: 5px 10px; background: #222; font-size: 12px; }
     .vk-keys { flex: 1; padding: 10px; display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; overflow-y: auto; align-content: start; }
     .vk-key {
@@ -216,6 +231,7 @@
     .vk-key:active { transform: translateY(2px); box-shadow: none; }
     .vk-key.space { grid-column: span 6; }
     .vk-key.wide { grid-column: span 2; }
+    .vk-key.arrow { background: #444; }
 
     /* MODALS */
     .modal-overlay {
@@ -242,24 +258,24 @@
     input:checked + .slider { background-color: var(--accent); }
     input:checked + .slider:before { transform: translateX(16px); }
 
-    /* Animations */
-    .shake { animation: shake 0.5s; }
-    @keyframes shake {
-      0% { transform: translate(1px, 1px) rotate(0deg); }
-      10% { transform: translate(-1px, -2px) rotate(-1deg); }
-      20% { transform: translate(-3px, 0px) rotate(1deg); }
-      30% { transform: translate(3px, 2px) rotate(0deg); }
-      40% { transform: translate(1px, -1px) rotate(1deg); }
-      50% { transform: translate(-1px, 2px) rotate(-1deg); }
-      60% { transform: translate(-3px, 1px) rotate(0deg); }
-      70% { transform: translate(3px, 1px) rotate(-1deg); }
-      80% { transform: translate(-1px, -1px) rotate(1deg); }
-      90% { transform: translate(1px, 2px) rotate(0deg); }
-      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    /* Drawing Canvas */
+    .canvas-container {
+      position: relative; width: 100%; height: 300px; background: #fff;
+      border-radius: 8px; overflow: hidden; touch-action: none;
+      cursor: crosshair;
+    }
+    #drawingCanvas { width: 100%; height: 100%; display: block; }
+    .color-picker { display: flex; gap: 5px; justify-content: center; margin: 10px 0; }
+    .color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+    .color-dot.active { border-color: white; transform: scale(1.2); }
+    .peer-cursor {
+      position: absolute; pointer-events: none; font-size: 10px; color: black;
+      background: rgba(255,255,255,0.8); padding: 2px 4px; border-radius: 4px;
+      transform: translate(-50%, -100%); white-space: nowrap;
     }
 
     @media (max-width: 768px) {
-      aside { position: absolute; z-index: 50; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #111; width: 85%; }
+      aside { position: absolute; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #111; width: 85%; }
       aside.open { transform: translateX(0); }
       .mobile-menu-btn { display: block; }
     }
@@ -287,8 +303,8 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v5.3</h1>
-      <p>Zero Trust · Resilient · Secure</p>
+      <h1>PepeChat v6.0</h1>
+      <p>Ephemeral · Collaborative · Secure</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
         <button type="submit" class="btn-primary">Start Chatting</button>
@@ -298,6 +314,9 @@
       </form>
     </div>
   </div>
+
+  <!-- SIDEBAR OVERLAY -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <!-- MAIN APP -->
   <div id="app">
@@ -333,7 +352,7 @@
         <div class="header-controls">
           <button class="icon-btn" id="ghostToggle" title="Ghost Mode"><i class="fa-solid fa-ghost"></i></button>
           <button class="icon-btn" id="keySettingsBtn" title="Encryption"><i class="fa-solid fa-key"></i></button>
-          <button class="icon-btn danger" id="deleteChatBtn" title="Delete/Clear"><i class="fa-solid fa-trash"></i></button>
+          <button class="icon-btn danger" id="deleteChatBtn" title="Nuke Chat"><i class="fa-solid fa-radiation"></i></button>
         </div>
       </div>
 
@@ -343,6 +362,7 @@
 
       <form class="input-area" id="msgForm">
         <button type="button" class="file-btn" id="uploadBtn"><i class="fa-solid fa-paperclip"></i></button>
+        <button type="button" class="file-btn" id="drawBtn" title="Collaborative Drawing"><i class="fa-solid fa-paintbrush"></i></button>
         <input type="file" id="fileInput" class="hidden-file">
         <input type="text" class="msg-input" id="msgInput" placeholder="Type message..." autocomplete="off">
         <button type="button" class="file-btn" id="vkToggleBtn" title="Virtual Keyboard"><i class="fa-solid fa-keyboard"></i></button>
@@ -483,13 +503,34 @@
     </div>
   </div>
 
+  <!-- DRAWING MODAL -->
+  <div class="modal-overlay" id="drawingModal">
+    <div class="modal" style="max-width: 500px; width: 95%;">
+      <h3>Collaborative Canvas</h3>
+      <div class="color-picker" id="colorPicker">
+        <div class="color-dot active" style="background: #000;" data-color="#000000"></div>
+        <div class="color-dot" style="background: #FF453A;" data-color="#FF453A"></div>
+        <div class="color-dot" style="background: #30D158;" data-color="#30D158"></div>
+        <div class="color-dot" style="background: #0A84FF;" data-color="#0A84FF"></div>
+        <div class="color-dot" style="background: #FFD60A;" data-color="#FFD60A"></div>
+      </div>
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="drawingCanvas"></canvas>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="finishDrawingBtn">Finish & Send</button>
+        <button class="btn-sec" id="cancelDrawingBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function() {
       'use strict';
 
       // --- CONFIG & STATE ---
       const APP_URL = window.location.href.split('?')[0];
-      const STORAGE_KEY = 'pepechat_v5_data';
+      const STORAGE_KEY = 'pepechat_v6_data';
       
       let peer = null;
       let myId = null;
@@ -498,6 +539,7 @@
       let chats = new Map(); 
       let activeChatId = null;
       let ghostMode = false;
+      let heartbeatInterval = null;
       
       let settings = {
         secureSession: false 
@@ -508,6 +550,14 @@
       let vkSet = 'abc';
       let vkScramble = false;
 
+      // Drawing State
+      let isDrawing = false;
+      let drawCtx = null;
+      let drawColor = '#000000';
+      let drawingActive = false;
+      let lastX = 0;
+      let lastY = 0;
+
       // --- DOM ELEMENTS ---
       const els = {
         loginScreen: document.getElementById('loginScreen'),
@@ -516,6 +566,7 @@
         genRandomLink: document.getElementById('genRandomLink'),
         app: document.getElementById('app'),
         sidebar: document.getElementById('sidebar'),
+        sidebarOverlay: document.getElementById('sidebarOverlay'),
         menuBtn: document.getElementById('menuBtn'),
         
         myAvatar: document.getElementById('myAvatar'),
@@ -536,6 +587,7 @@
         msgInput: document.getElementById('msgInput'),
         fileInput: document.getElementById('fileInput'),
         uploadBtn: document.getElementById('uploadBtn'),
+        drawBtn: document.getElementById('drawBtn'),
         vkToggleBtn: document.getElementById('vkToggleBtn'),
         sendBtn: document.getElementById('sendBtn'),
         ghostToggle: document.getElementById('ghostToggle'),
@@ -586,7 +638,15 @@
         fiName: document.getElementById('fiName'),
         fiType: document.getElementById('fiType'),
         fiSize: document.getElementById('fiSize'),
-        fiHash: document.getElementById('fiHash')
+        fiHash: document.getElementById('fiHash'),
+
+        // Drawing
+        drawingModal: document.getElementById('drawingModal'),
+        drawingCanvas: document.getElementById('drawingCanvas'),
+        canvasContainer: document.getElementById('canvasContainer'),
+        finishDrawingBtn: document.getElementById('finishDrawingBtn'),
+        cancelDrawingBtn: document.getElementById('cancelDrawingBtn'),
+        colorDots: document.querySelectorAll('.color-dot')
       };
 
       // --- INITIALIZATION ---
@@ -598,6 +658,10 @@
         checkUrlParams();
         setupEventListeners();
         renderVk();
+        initDrawing();
+        
+        // Heartbeat Loop
+        heartbeatInterval = setInterval(sendHeartbeat, 5000);
       });
 
       function checkUrlParams() {
@@ -645,8 +709,15 @@
           initApp(generateRandomId());
         });
 
-        // Sidebar
-        els.menuBtn.addEventListener('click', () => els.sidebar.classList.toggle('open'));
+        // Sidebar & Overlay
+        const toggleSidebar = () => {
+          const isOpen = els.sidebar.classList.contains('open');
+          els.sidebar.classList.toggle('open', !isOpen);
+          els.sidebarOverlay.classList.toggle('visible', !isOpen);
+        };
+        els.menuBtn.addEventListener('click', toggleSidebar);
+        els.sidebarOverlay.addEventListener('click', toggleSidebar);
+
         els.showQrBtn.addEventListener('click', showQrModal);
         els.addPeerBtn.addEventListener('click', () => openModal(els.addPeerModal));
         els.createGroupBtn.addEventListener('click', () => openModal(els.createGroupModal));
@@ -680,6 +751,8 @@
         els.uploadBtn.addEventListener('click', () => els.fileInput.click());
         els.fileInput.addEventListener('change', handleFileUpload);
         
+        els.drawBtn.addEventListener('click', startDrawingSession);
+
         els.ghostToggle.addEventListener('click', () => {
           ghostMode = !ghostMode;
           els.ghostToggle.classList.toggle('active', ghostMode);
@@ -696,16 +769,12 @@
         els.deleteChatBtn.addEventListener('click', () => {
           const chat = getActiveChat();
           if(!chat) return;
-          if(confirm(chat.type === 'group' ? 'Delete this group and all history?' : 'Clear chat history?')) {
-            if(chat.type === 'group') {
-              chats.delete(chat.id);
-              setActiveChat(null);
-            } else {
-              chat.messages = [];
-              renderMessages(chat);
-            }
-            saveStorage();
-            renderChatList();
+          if(confirm('NUKE CHAT? This will clear history for BOTH you and the peer.')) {
+            // Send clear signal
+            sendSignal(chat, { type: 'clear_history' });
+            chat.messages = [];
+            renderMessages(chat);
+            saveStorage(); // Updates storage (empty messages)
           }
         });
 
@@ -785,7 +854,7 @@
         });
       }
 
-      // --- FINGERPRINTING (FIXED) ---
+      // --- FINGERPRINTING ---
       async function generateFingerprint() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -797,7 +866,6 @@
         ctx.fillText("PepeChatv5", 2, 15);
         const b64 = canvas.toDataURL();
         
-        // REMOVED screen.width/height to fix instability on resize
         const components = [
           "UserAgent: " + navigator.userAgent,
           "Language: " + navigator.language,
@@ -843,19 +911,63 @@
           const btn = document.createElement('div');
           btn.className = 'vk-key';
           btn.textContent = char;
-          btn.onclick = () => { els.msgInput.value += char; if(vkScramble) renderVk(); };
+          btn.onclick = () => { insertAtCursor(char); if(vkScramble) renderVk(); };
           els.vkKeys.appendChild(btn);
         });
+        
+        // Space
         const space = document.createElement('div');
         space.className = 'vk-key space';
         space.textContent = 'SPACE';
-        space.onclick = () => { els.msgInput.value += ' '; };
+        space.onclick = () => { insertAtCursor(' '); };
         els.vkKeys.appendChild(space);
+        
+        // Backspace
         const back = document.createElement('div');
         back.className = 'vk-key wide';
         back.innerHTML = '<i class="fa-solid fa-delete-left"></i>';
-        back.onclick = () => { els.msgInput.value = els.msgInput.value.slice(0, -1); if(vkScramble) renderVk(); };
+        back.onclick = () => { 
+          const start = els.msgInput.selectionStart;
+          const end = els.msgInput.selectionEnd;
+          if(start === end && start > 0) {
+            els.msgInput.value = els.msgInput.value.slice(0, start - 1) + els.msgInput.value.slice(end);
+            els.msgInput.selectionStart = els.msgInput.selectionEnd = start - 1;
+          } else {
+            els.msgInput.value = els.msgInput.value.slice(0, start) + els.msgInput.value.slice(end);
+            els.msgInput.selectionStart = els.msgInput.selectionEnd = start;
+          }
+          if(vkScramble) renderVk(); 
+        };
         els.vkKeys.appendChild(back);
+
+        // Arrows
+        const left = document.createElement('div');
+        left.className = 'vk-key arrow';
+        left.innerHTML = '<i class="fa-solid fa-arrow-left"></i>';
+        left.onclick = () => { 
+          const pos = Math.max(0, els.msgInput.selectionStart - 1);
+          els.msgInput.setSelectionRange(pos, pos);
+          els.msgInput.focus();
+        };
+        els.vkKeys.appendChild(left);
+
+        const right = document.createElement('div');
+        right.className = 'vk-key arrow';
+        right.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
+        right.onclick = () => { 
+          const pos = Math.min(els.msgInput.value.length, els.msgInput.selectionStart + 1);
+          els.msgInput.setSelectionRange(pos, pos);
+          els.msgInput.focus();
+        };
+        els.vkKeys.appendChild(right);
+      }
+
+      function insertAtCursor(text) {
+        const start = els.msgInput.selectionStart;
+        const end = els.msgInput.selectionEnd;
+        els.msgInput.value = els.msgInput.value.slice(0, start) + text + els.msgInput.value.slice(end);
+        els.msgInput.selectionStart = els.msgInput.selectionEnd = start + text.length;
+        els.msgInput.focus();
       }
 
       // --- CORE LOGIC ---
@@ -888,7 +1000,6 @@
           }
         });
 
-        // INCOMING CONNECTION HANDLER
         peer.on('connection', (conn) => {
           handleConnection(conn, true);
         });
@@ -904,23 +1015,16 @@
           renderChatList();
         }
         
-        // If we already have an open connection, don't reconnect unless necessary
         if(chat.conn && chat.conn.open) {
           setActiveChat(remoteId);
           return;
         }
 
         const conn = peer.connect(remoteId);
-        
-        conn.on('error', (err) => {
-          console.error("Connection Error:", err);
-          alert("Connection failed: " + err);
-        });
-
+        conn.on('error', (err) => { console.error("Connection Error:", err); });
         handleConnection(conn, false, presetKey);
       }
 
-      // FIXED: Robust Connection Handling
       function handleConnection(conn, inbound, presetKey) {
         const peerId = conn.peer;
         let chat = chats.get(peerId);
@@ -929,8 +1033,6 @@
           chat = createChatObject(peerId, presetKey);
           chats.set(peerId, chat);
         } else {
-          // If inbound, we ALWAYS accept this as the new active connection
-          // This fixes the "A queues, B sends" bug by ensuring A updates its reference to B
           if (inbound || !chat.conn || !chat.conn.open) {
             chat.conn = conn;
           }
@@ -941,8 +1043,8 @@
         if(!activeChatId) setActiveChat(peerId);
 
         conn.on('open', () => {
-          // Force update the connection reference on open to be sure
           chat.conn = conn;
+          chat.lastSeen = Date.now();
           
           conn.send({ 
             kind: 'handshake', 
@@ -953,7 +1055,6 @@
           updateChatStatus(chat);
           renderChatList();
           
-          // Flush Queue
           if(chat.pendingMessages.length > 0) {
             addSystemMessage(chat, "Connection re-established. Sending queued messages...");
             chat.pendingMessages.forEach(msg => {
@@ -969,21 +1070,13 @@
               msg.status = 'sent';
             });
             chat.pendingMessages = [];
-            saveStorage();
             if(activeChatId === chat.id) renderMessages(chat);
           }
         });
 
         conn.on('data', (data) => handleData(conn, data));
-        
-        conn.on('close', () => { 
-          updateChatStatus(chat); 
-          renderChatList(); 
-        });
-        
-        conn.on('error', () => {
-           updateChatStatus(chat);
-        });
+        conn.on('close', () => { updateChatStatus(chat); renderChatList(); });
+        conn.on('error', () => { updateChatStatus(chat); });
       }
 
       function createChatObject(peerId, presetKey) {
@@ -996,8 +1089,23 @@
           pendingMessages: [],
           conn: null,
           unread: 0,
-          fingerprint: null
+          fingerprint: null,
+          lastSeen: 0
         };
+      }
+
+      // --- HEARTBEAT SYSTEM ---
+      function sendHeartbeat() {
+        chats.forEach(chat => {
+          if(chat.type === 'direct' && chat.conn && chat.conn.open) {
+            chat.conn.send({ kind: 'ping' });
+            // If no pong for 15s, mark offline
+            if(Date.now() - chat.lastSeen > 15000) {
+              // Don't close, just update UI status
+              updateChatStatus(chat);
+            }
+          }
+        });
       }
 
       // --- GROUP CHAT LOGIC ---
@@ -1024,11 +1132,6 @@
         if(chat.participants.includes(peerId)) return;
         
         const conn = peer.connect(peerId);
-        
-        conn.on('error', (err) => {
-          alert(`Could not connect to ${peerId}. They might be offline.`);
-        });
-
         chat.participants.push(peerId);
         chat.connections[peerId] = conn;
         
@@ -1046,6 +1149,7 @@
         saveStorage();
       }
 
+      // --- DATA HANDLING ---
       function handleData(conn, data) {
         let chat = null;
         
@@ -1074,11 +1178,50 @@
 
         if(!chat) return;
 
+        // Heartbeat
+        if(data.kind === 'ping') {
+          chat.lastSeen = Date.now();
+          conn.send({ kind: 'pong' });
+          updateChatStatus(chat);
+          return;
+        }
+        if(data.kind === 'pong') {
+          chat.lastSeen = Date.now();
+          updateChatStatus(chat);
+          return;
+        }
+
+        // Signals
+        if(data.kind === 'signal') {
+          if(data.type === 'clear_history') {
+            chat.messages = [];
+            addSystemMessage(chat, "Peer nuked the chat history.");
+            if(activeChatId === chat.id) renderMessages(chat);
+          }
+          else if(data.type === 'drawing_invite') {
+            const accept = confirm(`${conn.peer} is drawing. Join session?`);
+            if(accept) {
+              startDrawingSession(true); // Join mode
+              sendSignal(chat, { type: 'drawing_join' });
+            }
+          }
+          else if(data.type === 'drawing_join') {
+            addSystemMessage(chat, `${conn.peer} joined drawing session.`);
+          }
+          else if(data.type === 'drawing_stroke') {
+            drawRemoteStroke(data.x, data.y, data.lastX, data.lastY, data.color);
+          }
+          else if(data.type === 'drawing_cursor') {
+            showRemoteCursor(data.x, data.y, conn.peer);
+          }
+          return;
+        }
+
         if(data.kind === 'handshake') {
           if(chat.type === 'direct') {
             chat.name = data.name;
-            // Ensure connection object is up to date
             chat.conn = conn;
+            chat.lastSeen = Date.now();
             
             if(settings.secureSession) {
               if(chat.fingerprint && chat.fingerprint !== data.fingerprint) {
@@ -1110,7 +1253,7 @@
               senderName: data.senderName || conn.peer,
               type: payload.type,
               content: payload.content,
-              meta: payload.meta, // Contains fileName, size, type, hash
+              meta: payload.meta, 
               timestamp: data.timestamp || new Date().toISOString(),
               ghost: payload.ghost,
               status: 'received'
@@ -1122,7 +1265,18 @@
               chat.unread++;
               renderChatList();
             }
-            saveStorage();
+            // Note: We do NOT save messages to storage anymore
+          });
+        }
+      }
+
+      function sendSignal(chat, payload) {
+        if(chat.type === 'direct' && chat.conn && chat.conn.open) {
+          chat.conn.send({ kind: 'signal', ...payload });
+        } else if (chat.type === 'group') {
+          chat.participants.forEach(pid => {
+            const c = chat.connections[pid];
+            if(c && c.open) c.send({ kind: 'signal', ...payload });
           });
         }
       }
@@ -1178,29 +1332,184 @@
             });
             msgObj.status = 'sent';
           }
-          saveStorage();
-          if(activeChatId === chat.id) renderMessages(chat);
-        }).catch(err => {
-          console.error("Encryption failed", err);
-          msgObj.status = 'failed';
           if(activeChatId === chat.id) renderMessages(chat);
         });
       }
 
-      // --- FILE HANDLING (FIXED & IMPROVED) ---
+      // --- DRAWING LOGIC ---
+      function initDrawing() {
+        drawCtx = els.drawingCanvas.getContext('2d');
+        
+        // Resize canvas
+        const resize = () => {
+          els.drawingCanvas.width = els.canvasContainer.offsetWidth;
+          els.drawingCanvas.height = els.canvasContainer.offsetHeight;
+        };
+        window.addEventListener('resize', resize);
+        
+        // Events
+        const start = (e) => {
+          isDrawing = true;
+          const rect = els.drawingCanvas.getBoundingClientRect();
+          lastX = (e.clientX || e.touches[0].clientX) - rect.left;
+          lastY = (e.clientY || e.touches[0].clientY) - rect.top;
+        };
+        
+        const move = (e) => {
+          const rect = els.drawingCanvas.getBoundingClientRect();
+          const x = (e.clientX || e.touches[0].clientX) - rect.left;
+          const y = (e.clientY || e.touches[0].clientY) - rect.top;
+          
+          // Send cursor pos
+          const chat = getActiveChat();
+          if(chat) sendSignal(chat, { type: 'drawing_cursor', x: x/els.drawingCanvas.width, y: y/els.drawingCanvas.height });
+
+          if(!isDrawing) return;
+          
+          drawCtx.beginPath();
+          drawCtx.moveTo(lastX, lastY);
+          drawCtx.lineTo(x, y);
+          drawCtx.strokeStyle = drawColor;
+          drawCtx.lineWidth = 3;
+          drawCtx.lineCap = 'round';
+          drawCtx.stroke();
+          
+          // Send stroke
+          if(chat) {
+            sendSignal(chat, { 
+              type: 'drawing_stroke', 
+              x: x/els.drawingCanvas.width, 
+              y: y/els.drawingCanvas.height,
+              lastX: lastX/els.drawingCanvas.width,
+              lastY: lastY/els.drawingCanvas.height,
+              color: drawColor
+            });
+          }
+
+          lastX = x;
+          lastY = y;
+        };
+        
+        const end = () => { isDrawing = false; };
+
+        els.drawingCanvas.addEventListener('mousedown', start);
+        els.drawingCanvas.addEventListener('mousemove', move);
+        els.drawingCanvas.addEventListener('mouseup', end);
+        els.drawingCanvas.addEventListener('touchstart', start);
+        els.drawingCanvas.addEventListener('touchmove', move);
+        els.drawingCanvas.addEventListener('touchend', end);
+
+        // Colors
+        els.colorDots.forEach(dot => {
+          dot.addEventListener('click', () => {
+            els.colorDots.forEach(d => d.classList.remove('active'));
+            dot.classList.add('active');
+            drawColor = dot.dataset.color;
+          });
+        });
+
+        // Actions
+        els.finishDrawingBtn.addEventListener('click', () => {
+          const base64 = els.drawingCanvas.toDataURL('image/png');
+          sendImageAsFile(base64, 'drawing.png');
+          closeModals();
+          drawingActive = false;
+        });
+        
+        els.cancelDrawingBtn.addEventListener('click', () => {
+          closeModals();
+          drawingActive = false;
+        });
+      }
+
+      function startDrawingSession(isJoin = false) {
+        const chat = getActiveChat();
+        if(!chat) return;
+        
+        openModal(els.drawingModal);
+        // Reset canvas
+        els.drawingCanvas.width = els.canvasContainer.offsetWidth;
+        els.drawingCanvas.height = els.canvasContainer.offsetHeight;
+        drawCtx.clearRect(0, 0, els.drawingCanvas.width, els.drawingCanvas.height);
+        drawCtx.fillStyle = "white";
+        drawCtx.fillRect(0,0,els.drawingCanvas.width, els.drawingCanvas.height);
+        
+        drawingActive = true;
+        
+        if(!isJoin) {
+          sendSignal(chat, { type: 'drawing_invite' });
+          addSystemMessage(chat, "Started drawing session. Waiting for peer...");
+        }
+      }
+
+      function drawRemoteStroke(x, y, lx, ly, color) {
+        if(!drawingActive) return;
+        const w = els.drawingCanvas.width;
+        const h = els.drawingCanvas.height;
+        drawCtx.beginPath();
+        drawCtx.moveTo(lx * w, ly * h);
+        drawCtx.lineTo(x * w, y * h);
+        drawCtx.strokeStyle = color;
+        drawCtx.lineWidth = 3;
+        drawCtx.lineCap = 'round';
+        drawCtx.stroke();
+      }
+
+      function showRemoteCursor(x, y, name) {
+        if(!drawingActive) return;
+        let cursor = document.getElementById('cursor-' + name);
+        if(!cursor) {
+          cursor = document.createElement('div');
+          cursor.id = 'cursor-' + name;
+          cursor.className = 'peer-cursor';
+          cursor.textContent = name;
+          els.canvasContainer.appendChild(cursor);
+        }
+        cursor.style.left = (x * 100) + '%';
+        cursor.style.top = (y * 100) + '%';
+      }
+
+      function sendImageAsFile(base64, name) {
+        const chat = getActiveChat();
+        if(!chat) return;
+        
+        // Convert base64 to blob to get size/hash (simplified here)
+        const meta = { name: name, size: 'Unknown', type: 'image/png', hash: 'generated' };
+        const payload = { type: 'file', content: base64, meta: meta, ghost: ghostMode };
+        const timestamp = new Date().toISOString();
+        
+        const msgObj = { from: 'me', type: 'file', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
+        chat.messages.push(msgObj);
+        appendMessageToUI(msgObj);
+        
+        encryptPayload(chat.passphrase, payload).then(pkg => {
+           const msgData = {
+            kind: 'message',
+            iv: pkg.iv,
+            data: pkg.data,
+            groupId: chat.type === 'group' ? chat.id : undefined,
+            groupName: chat.type === 'group' ? chat.name : undefined,
+            senderName: myId,
+            timestamp: timestamp
+          };
+          if(chat.conn && chat.conn.open) chat.conn.send(msgData);
+          msgObj.status = 'sent';
+          if(activeChatId === chat.id) renderMessages(chat);
+        });
+      }
+
+      // --- FILE HANDLING ---
       async function handleFileUpload(e) {
         const file = e.target.files[0];
         if(!file) return;
 
-        // 1. Calculate Hash First
         const arrayBuffer = await file.arrayBuffer();
         const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
         const fileHash = buf2hex(hashBuffer);
 
-        // 2. Read as DataURL for sending
         const reader = new FileReader();
         reader.onload = (ev) => {
-          const base64 = ev.target.result; // Full Data URL
+          const base64 = ev.target.result;
           const chat = getActiveChat();
           if(!chat) return;
 
@@ -1211,13 +1520,7 @@
             hash: fileHash
           };
 
-          const payload = { 
-            type: 'file', 
-            content: base64, 
-            meta: meta,
-            ghost: ghostMode 
-          };
-          
+          const payload = { type: 'file', content: base64, meta: meta, ghost: ghostMode };
           const timestamp = new Date().toISOString();
 
           const msgObj = {
@@ -1258,7 +1561,6 @@
               });
               msgObj.status = 'sent';
             }
-            saveStorage();
             if(activeChatId === chat.id) renderMessages(chat);
           });
         };
@@ -1311,9 +1613,9 @@
         chats.forEach(chat => {
           const div = document.createElement('div');
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
-          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open);
           
-          // Check if connecting
+          // Heartbeat check for status
+          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 20000));
           const isConnecting = chat.type === 'direct' && !isOnline && chat.conn && !chat.conn.open;
 
           div.innerHTML = `
@@ -1353,13 +1655,19 @@
         
         renderMessages(chat);
         renderChatList();
-        if(window.innerWidth <= 768) els.sidebar.classList.remove('open');
+        
+        // Close sidebar on mobile
+        if(window.innerWidth <= 768) {
+          els.sidebar.classList.remove('open');
+          els.sidebarOverlay.classList.remove('visible');
+        }
       }
 
       function updateChatStatus(chat) {
         if(activeChatId !== chat.id || chat.type === 'group') return;
-        const isOnline = chat.conn && chat.conn.open;
-        els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline (Messages queued)";
+        // Heartbeat logic: Online if connection open AND last seen < 20s ago
+        const isOnline = chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 20000);
+        els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline";
         els.chatStatus.style.color = isOnline ? "var(--success)" : "var(--warning)";
       }
 
@@ -1377,7 +1685,6 @@
         if(msg.type === 'text') {
           contentHtml = sanitize(msg.content);
         } else if (msg.type === 'file') {
-          // Store content in a global map to avoid huge HTML strings
           const fileId = 'file-' + Math.random().toString(36).substr(2, 9);
           window[fileId] = { content: msg.content, meta: msg.meta };
           
@@ -1495,9 +1802,11 @@
       function buf2hex(buffer) { return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join(''); }
       function hex2buf(hex) { return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16))); }
       
+      // EPHEMERAL STORAGE: Only save ID and Chat List (without messages)
       function saveStorage() {
         const chatsArr = Array.from(chats.entries()).map(([k, v]) => {
-          const { conn, connections, ...rest } = v; 
+          // Destructure to exclude messages and connection objects
+          const { conn, connections, messages, pendingMessages, ...rest } = v; 
           return [k, rest];
         });
         const data = { myId, chats: chatsArr, settings };
@@ -1518,8 +1827,10 @@
               chats.forEach(c => { 
                 c.conn = null; 
                 c.connections = {}; 
-                c.unread = c.unread || 0; 
-                c.pendingMessages = c.pendingMessages || [];
+                c.unread = 0; 
+                c.messages = []; // Ensure empty on load
+                c.pendingMessages = [];
+                c.lastSeen = 0;
               });
             }
           } catch(e) {}
