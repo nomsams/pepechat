@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v13.0 · Instant Connect</title>
+  <title>PepeChat v14.0 · Glare Free</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS -->
+  <!-- PeerJS (Latest Beta) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -233,7 +233,7 @@
       height: 0; overflow: hidden; background: #000; border-top: 1px solid var(--glass-border);
       font-family: monospace; font-size: 10px; color: var(--success);
       transition: height 0.3s; display: flex; flex-direction: column;
-      position: absolute; bottom: 60px; left: 0; right: 0; z-index: 9999; /* High Z-Index */
+      position: absolute; bottom: 60px; left: 0; right: 0; z-index: 9999;
     }
     #securityLog.open { height: 60%; border-top: 2px solid var(--accent); }
     .log-header {
@@ -375,7 +375,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v13.0</h1>
+      <h1>PepeChat v14.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
@@ -431,6 +431,7 @@
           <p id="chatStatus">Waiting...</p>
         </div>
         <div class="header-controls">
+          <button class="icon-btn" id="reconnectBtn" title="Force Reconnect" style="display:none; color:var(--warning);"><i class="fa-solid fa-rotate"></i></button>
           <button class="icon-btn" id="ghostToggle" title="Ghost Mode"><i class="fa-solid fa-ghost"></i></button>
           <button class="icon-btn" id="keySettingsBtn" title="Encryption"><i class="fa-solid fa-key"></i></button>
           <button class="icon-btn" id="debugToggleBtn" title="Show Logs"><i class="fa-solid fa-bug"></i></button>
@@ -633,11 +634,10 @@
 
       // --- CONFIG & STATE ---
       const APP_URL = `${window.location.origin}${window.location.pathname}`;
-      const STORAGE_KEY = 'pepechat_v13_data';
+      const STORAGE_KEY = 'pepechat_v14_data';
       const CHUNK_SIZE = 16384; 
       
       // Default ICE Servers (STUN only)
-      // NOTE: For 4G/Mobile reliability, you MUST add a TURN server in Settings.
       const DEFAULT_ICE = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
@@ -667,6 +667,9 @@
 
       // Connection Registry for Glare Handling
       const connRegistry = new Map(); // peerId => { conn, dir: 'in'|'out', createdAt }
+
+      // Pending Auto-Connect
+      let pendingConnect = null;
 
       // File Transfer State
       let incomingFiles = {}; 
@@ -791,6 +794,7 @@
         keySettingsBtn: document.getElementById('keySettingsBtn'),
         deleteChatBtn: document.getElementById('deleteChatBtn'),
         debugToggleBtn: document.getElementById('debugToggleBtn'),
+        reconnectBtn: document.getElementById('reconnectBtn'),
 
         // Logs
         securityLog: document.getElementById('securityLog'),
@@ -877,17 +881,18 @@
             els.loginScreen.style.display = 'none';
             els.app.classList.add('visible');
             
+            // Store pending connection info
+            pendingConnect = { id: connectTo, key: keyParam };
+            
             // Start Async Init
-            initializeSystem(randomId, () => {
-                handleAutoConnect(connectTo, keyParam);
-            });
+            initializeSystem(randomId);
         } else {
             // Normal Load
             initializeSystem();
         }
       });
 
-      async function initializeSystem(forceId = null, callback = null) {
+      async function initializeSystem(forceId = null) {
         try {
           await initDB();
         } catch(e) {
@@ -901,7 +906,7 @@
         
         // If forced ID (from auto-connect), init app now
         if (forceId) {
-            initApp(forceId, callback);
+            initApp(forceId);
         }
         
         // Heartbeat Loop (Every 5 seconds)
@@ -996,19 +1001,31 @@
         return new TextDecoder().decode(bytes);
       }
 
+      function checkUrlParams() {
+        // This is now handled in DOMContentLoaded for speed
+      }
+
       function handleAutoConnect(connectTo, keyParam) {
-        setTimeout(() => {
-          let decodedKey = 'changeme';
-          if (keyParam) {
-            try {
-              decodedKey = b64urlDecodeUtf8(keyParam);
-            } catch (e) {
-              logDebug("Key decode failed: " + e.message, 'error');
-            }
+        let decodedKey = 'changeme';
+        if (keyParam) {
+          try {
+            decodedKey = b64urlDecodeUtf8(keyParam);
+          } catch (e) {
+            logDebug("Key decode failed: " + e.message, 'error');
           }
-          connectToPeer(connectTo, decodedKey);
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }, 1000);
+        }
+        // Create chat UI immediately
+        let chat = chats.get(connectTo);
+        if(!chat) {
+            chat = createChatObject(connectTo, decodedKey);
+            chats.set(connectTo, chat);
+            renderChatList();
+        }
+        setActiveChat(connectTo);
+        
+        // Connect
+        connectToPeer(connectTo, decodedKey);
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
 
       function setupEventListeners() {
@@ -1115,6 +1132,18 @@
             renderMessages(chat);
             saveStorage(); 
           }
+        });
+
+        els.reconnectBtn.addEventListener('click', () => {
+            const chat = getActiveChat();
+            if(chat && chat.type === 'direct') {
+                logDebug("Force Reconnect triggered by user.");
+                // Clean slate
+                if(chat.conn) chat.conn.close();
+                connRegistry.delete(chat.id);
+                chat.dialInProgress = false;
+                connectToPeer(chat.id, chat.passphrase);
+            }
         });
 
         // Logs
@@ -1251,7 +1280,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv13", 2, 15);
+        ctx.fillText("PepeChatv14", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -1284,6 +1313,7 @@
         return {
           iceServers: servers,
           iceCandidatePoolSize: 10, // Increased for faster gathering
+          iceTransportPolicy: 'all', // Ensure we try everything
           sdpSemantics: 'unified-plan'
         };
       }
@@ -1310,6 +1340,13 @@
           setTimeout(() => els.loginScreen.style.display = 'none', 500);
           els.app.classList.add('visible');
           logSecurity("Peer Network Connected.");
+          
+          // Execute pending auto-connect if any
+          if (pendingConnect) {
+              handleAutoConnect(pendingConnect.id, pendingConnect.key);
+              pendingConnect = null;
+          }
+          
           if(callback) callback();
         });
 
@@ -1528,6 +1565,10 @@
 
           if (msg.toLowerCase().includes('negotiation')) {
             try { conn.close(); } catch {}
+            
+            // CRITICAL FIX: Remove the dead connection from registry so retry isn't blocked by glare policy
+            connRegistry.delete(peerId);
+            
             // Immediate retry with fresh connection object
             logDebug(`Negotiation failed. Retrying immediately...`);
             setTimeout(() => {
@@ -2432,6 +2473,7 @@
         
         let text = "Offline";
         let color = "var(--text-muted)";
+        let showReconnect = false;
         
         if (chat.conn && chat.conn.open) {
             text = "Online · Encrypted";
@@ -2442,10 +2484,12 @@
         } else if (chat.iceState === 'failed') {
             text = "Connection Failed (NAT). TURN likely required.";
             color = "var(--danger)";
+            showReconnect = true;
         }
 
         els.chatStatus.textContent = text;
         els.chatStatus.style.color = color;
+        els.reconnectBtn.style.display = showReconnect ? 'block' : 'none';
       }
 
       function renderMessages(chat) {
