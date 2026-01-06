@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v9.0 · Unbreakable</title>
+  <title>PepeChat v9.0 · Production Ready</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS (Beta for better WebRTC support) -->
+  <!-- PeerJS (Latest Beta for best WebRTC support) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -29,6 +29,7 @@
       --danger: #FF453A;
       --success: #30D158;
       --warning: #FFD60A;
+      --morse-bg: #1a1a1a;
       --morse-active: #FFD60A;
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --safe-bottom: env(safe-area-inset-bottom, 20px);
@@ -50,8 +51,8 @@
 
     /* --- LOGIN SCREEN --- */
     #loginScreen {
-      position: absolute; inset: 0; z-index: 200;
-      background: rgba(0,0,0,0.98); backdrop-filter: blur(20px);
+      position: absolute; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.95); backdrop-filter: blur(20px);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       transition: opacity 0.5s ease;
     }
@@ -83,8 +84,8 @@
     /* SIDEBAR */
     aside {
       width: 320px; border-right: 1px solid var(--glass-border);
-      display: flex; flex-direction: column; background: rgba(20,20,20,0.95);
-      z-index: 60; transition: transform 0.3s ease;
+      display: flex; flex-direction: column; background: rgba(0,0,0,0.3);
+      z-index: 60; /* Higher than overlay */
     }
     .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
     .user-profile { display: flex; align-items: center; gap: 10px; }
@@ -127,7 +128,7 @@
     /* CHAT AREA */
     main {
       flex: 1; display: flex; flex-direction: column; position: relative;
-      background: rgba(0,0,0,0.2); width: 100%;
+      background: rgba(0,0,0,0.2);
     }
     .chat-header {
       padding: 15px 20px; border-bottom: 1px solid var(--glass-border);
@@ -149,7 +150,7 @@
       display: flex; flex-direction: column; gap: 8px;
     }
     .msg {
-      max-width: 85%; padding: 10px 14px; border-radius: 18px;
+      max-width: 75%; padding: 10px 14px; border-radius: 18px;
       font-size: 14px; line-height: 1.4; position: relative; word-wrap: break-word;
     }
     .msg.in { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
@@ -174,7 +175,7 @@
     
     /* Audio Visualizer */
     .audio-visualizer {
-      display: flex; align-items: center; gap: 10px; min-width: 180px; height: 36px;
+      display: flex; align-items: center; gap: 10px; min-width: 200px; height: 40px;
       background: rgba(0,0,0,0.2); border-radius: 20px; padding: 0 10px;
     }
     .play-icon { cursor: pointer; font-size: 14px; width: 20px; text-align: center; }
@@ -205,20 +206,21 @@
       padding: 10px; 
       padding-bottom: calc(10px + var(--safe-bottom));
       border-top: 1px solid var(--glass-border);
-      display: flex; gap: 6px; align-items: center; background: rgba(30,30,30,0.8);
+      display: flex; gap: 6px; align-items: center; background: rgba(30,30,30,0.6);
       transition: padding-bottom 0.3s;
-      flex-wrap: nowrap;
+      flex-wrap: nowrap; /* Prevent wrapping on small screens */
     }
     .msg-input {
       flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border);
       border-radius: 20px; padding: 10px 12px; color: white; outline: none; font-size: 14px;
-      min-width: 50px; /* Prevent collapse */
+      min-width: 50px; /* Ensure it doesn't collapse */
     }
     .msg-input:focus { border-color: var(--accent); }
     .file-btn {
       color: var(--accent); background: rgba(10,132,255,0.1); border: none;
       width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: 14px;
     }
     .file-btn:hover { background: rgba(10,132,255,0.2); }
     .file-btn.recording { background: var(--danger); color: white; animation: pulse-red 1s infinite; }
@@ -229,8 +231,9 @@
       height: 0; overflow: hidden; background: #000; border-top: 1px solid var(--glass-border);
       font-family: monospace; font-size: 10px; color: var(--success);
       transition: height 0.3s; display: flex; flex-direction: column;
+      position: absolute; bottom: 60px; left: 0; right: 0; z-index: 40;
     }
-    #securityLog.open { height: 250px; }
+    #securityLog.open { height: 50%; border-top: 2px solid var(--accent); }
     .log-header {
       padding: 8px 15px; background: #111; cursor: pointer; display: flex; justify-content: space-between;
     }
@@ -241,7 +244,7 @@
     .log-row { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; display: flex; gap: 10px; }
     .log-row.error { color: var(--danger); }
     .log-row.warn { color: var(--warning); }
-    .log-hash { color: #888; user-select: all; word-break: break-all; }
+    .log-hash { color: #888; user-select: all; }
     .log-btn { background: #333; border: 1px solid #555; color: white; font-size: 9px; padding: 2px 6px; cursor: pointer; border-radius: 4px; }
 
     /* VIRTUAL KEYBOARD */
@@ -428,7 +431,7 @@
         <div class="header-controls">
           <button class="icon-btn" id="ghostToggle" title="Ghost Mode"><i class="fa-solid fa-ghost"></i></button>
           <button class="icon-btn" id="keySettingsBtn" title="Encryption"><i class="fa-solid fa-key"></i></button>
-          <button class="icon-btn" id="debugToggleBtn" title="Diagnostics"><i class="fa-solid fa-bug"></i></button>
+          <button class="icon-btn" id="debugToggleBtn" title="Show Logs"><i class="fa-solid fa-bug"></i></button>
           <button class="icon-btn danger" id="deleteChatBtn" title="Nuke Chat (Remote Wipe)"><i class="fa-solid fa-radiation"></i></button>
         </div>
       </div>
@@ -624,12 +627,12 @@
       'use strict';
 
       // --- CONFIG & STATE ---
-      const APP_URL = window.location.origin + window.location.pathname;
+      const APP_URL = window.location.href.split('?')[0];
       const STORAGE_KEY = 'pepechat_v9_data';
       const CHUNK_SIZE = 16384; 
       
       // Robust ICE Servers for 4G/Mobile/Tor
-      // Note: Without a paid TURN server, we rely on a broad list of STUN servers.
+      // Note: For production reliability on mobile, a TURN server is highly recommended.
       const ICE_SERVERS = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
@@ -655,7 +658,7 @@
       };
 
       // File Transfer State
-      let incomingFiles = {}; // Scoped by chat ID later
+      let incomingFiles = {}; // Scoped by chat ID in implementation
 
       // Virtual Keyboard State
       let vkActive = false;
@@ -820,10 +823,10 @@
         // Check active chats
         chats.forEach(chat => {
           if(chat.type === 'direct' && (!chat.conn || !chat.conn.open)) {
-             // Only reconnect if not currently dialing
-             if(!chat.dialLock) {
-                connectToPeer(chat.id, chat.passphrase);
-                logDebug(`Attempting to rejoin ${chat.name}...`);
+             // Only reconnect if not already trying
+             if (!chat.dialInProgress) {
+                 connectToPeer(chat.id, chat.passphrase);
+                 logDebug(`Attempting to rejoin ${chat.name}...`);
              }
           }
         });
@@ -851,9 +854,11 @@
           let decodedKey = 'changeme';
           if (keyBase64) {
             try { 
-                // URL-safe Base64 decode
-                decodedKey = decodeURIComponent(escape(atob(decodeURIComponent(keyBase64))));
-            } catch(e){ logDebug("Key decode error: " + e); }
+                // Fix D: Decode properly
+                decodedKey = atob(decodeURIComponent(keyBase64)); 
+            } catch(e){
+                logDebug("Key decode failed: " + e.message, 'error');
+            }
           }
           connectToPeer(connectTo, decodedKey);
           window.history.replaceState({}, document.title, window.location.pathname);
@@ -885,7 +890,18 @@
         
         els.copyMyIdBtn.addEventListener('click', () => {
           if(myId) {
-            navigator.clipboard.writeText(myId);
+            // Fix W: Use Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(myId);
+            } else {
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = myId;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
             els.copyMyIdBtn.classList.remove('fa-copy');
             els.copyMyIdBtn.classList.add('fa-check');
             setTimeout(() => {
@@ -1110,9 +1126,6 @@
         logDebug(`Initializing PeerJS with ID: ${userId}`);
         logDebug(`Configuring ICE Servers (Google/Twilio) for NAT traversal...`);
 
-        // Destroy old peer if exists
-        if(peer) peer.destroy();
-
         // Robust Configuration for 4G/Tor
         peer = new Peer(myId, {
           debug: 2, 
@@ -1136,6 +1149,8 @@
           logDebug(`Peer Error: ${err.type} - ${err.message}`, 'error');
           if(err.type === 'unavailable-id') {
             alert('ID taken. Trying random.');
+            // Fix L: Destroy old peer before retrying
+            if(peer) peer.destroy();
             initApp(generateRandomId(), callback);
           } else if (err.type === 'peer-unavailable') {
             alert('Peer not found. They might be offline or the ID is incorrect.');
@@ -1160,9 +1175,9 @@
           renderChatList();
         }
         
-        // DIAL LOCK: Prevent glare (simultaneous connections)
-        if(chat.dialLock) {
-            logDebug(`Dial lock active for ${remoteId}, skipping...`);
+        // Fix K: Dial Lock / Glare prevention
+        if(chat.dialInProgress) {
+            logDebug(`Dial already in progress for ${remoteId}`);
             return;
         }
         
@@ -1171,31 +1186,32 @@
           return;
         }
 
-        chat.dialLock = true;
+        chat.dialInProgress = true;
         logDebug(`Initiating connection to ${remoteId}...`);
         
         const conn = peer.connect(remoteId, {
+          reliable: true,
           serialization: 'json'
         });
         
-        // Connection Timeout Logic (Extended for Mobile)
+        // Fix G: Increased timeout for mobile/Tor
         const timeout = setTimeout(() => {
           if(!conn.open) {
             logDebug(`Connection to ${remoteId} timed out (45s). NAT/Firewall issue likely.`, 'error');
             conn.close();
-            chat.dialLock = false;
+            chat.dialInProgress = false;
             updateChatStatus(chat);
           }
         }, 45000);
 
         conn.on('open', () => {
             clearTimeout(timeout);
-            chat.dialLock = false;
+            chat.dialInProgress = false;
         });
         conn.on('error', (err) => { 
             console.error("Connection Error:", err); 
             clearTimeout(timeout);
-            chat.dialLock = false;
+            chat.dialInProgress = false;
         });
         
         handleConnection(conn, false, presetKey);
@@ -1211,6 +1227,8 @@
         } else {
           if (!chat.conn || !chat.conn.open) {
             chat.conn = conn;
+          } else if (inbound) {
+             logDebug(`Duplicate connection attempt from ${peerId}`);
           }
           if(presetKey) chat.passphrase = presetKey;
         }
@@ -1218,34 +1236,43 @@
         renderChatList();
         if(!activeChatId) setActiveChat(peerId);
 
-        // CRITICAL FIX: Do not overwrite onicecandidate. Use addEventListener on the underlying PC.
-        // This allows PeerJS to handle the handshake while we observe.
-        const pc = conn.peerConnection;
-        if (pc) {
-            pc.addEventListener('icecandidate', (event) => {
-                if (event.candidate) {
-                    logDebug(`ICE Candidate (${peerId}): ${event.candidate.candidate}`);
-                }
-            });
-            pc.addEventListener('iceconnectionstatechange', () => {
-                logDebug(`ICE State (${peerId}): ${pc.iceConnectionState}`);
-                chat.iceState = pc.iceConnectionState;
-                updateChatStatus(chat);
-            });
-            pc.addEventListener('connectionstatechange', () => {
-                logDebug(`PC State (${peerId}): ${pc.connectionState}`);
-            });
-        } else {
-            logDebug("Warning: No peerConnection object found on connection.", 'warn');
-        }
+        // Fix A & C: Correct ICE State Monitoring
+        // We do NOT overwrite onicecandidate. We use addEventListener.
+        // We check if peerConnection exists (it might not immediately).
+        const monitorICE = () => {
+            const pc = conn.peerConnection;
+            if (pc) {
+                // Fix H: Log candidates
+                pc.addEventListener('icecandidate', (event) => {
+                    if (event.candidate) {
+                        logDebug(`ICE Candidate (${peerId}): ${event.candidate.candidate}`);
+                    }
+                });
+                
+                // Fix J: Detailed State Monitoring
+                pc.addEventListener('iceconnectionstatechange', () => {
+                    logDebug(`ICE State (${peerId}): ${pc.iceConnectionState}`);
+                    chat.iceState = pc.iceConnectionState;
+                    updateChatStatus(chat);
+                });
+                
+                pc.addEventListener('connectionstatechange', () => {
+                    logDebug(`PC State (${peerId}): ${pc.connectionState}`);
+                });
+            } else {
+                // Retry if PC not ready yet
+                setTimeout(monitorICE, 100);
+            }
+        };
+        monitorICE();
 
         conn.on('open', () => {
           logDebug(`DataChannel established with ${peerId}`);
           chat.conn = conn;
           chat.lastSeen = Date.now();
-          chat.dialLock = false;
+          chat.dialInProgress = false;
           
-          // Auto-close QR if open
+          // Fix D: Auto-close QR
           if(els.qrModal.classList.contains('open')) closeModals();
 
           conn.send({ 
@@ -1257,7 +1284,7 @@
           updateChatStatus(chat);
           renderChatList();
           
-          // Flush Pending Messages
+          // Fix I: Update actual message objects in UI
           if(chat.pendingMessages.length > 0) {
             addSystemMessage(chat, "Connection re-established. Sending queued messages...");
             chat.pendingMessages.forEach(item => {
@@ -1270,25 +1297,34 @@
                   timestamp: item.timestamp
                 });
               });
-              // Update the actual message in UI state
+              // Find the message in chat.messages and update status
               const uiMsg = chat.messages.find(m => m.id === item.msgId);
-              if(uiMsg) uiMsg.status = 'sent';
+              if(uiMsg) {
+                  uiMsg.status = 'sent';
+                  if(activeChatId === chat.id) {
+                      // Re-render specific message status if possible, or full list
+                      const el = document.getElementById(uiMsg.id);
+                      if(el) {
+                          const statusEl = el.querySelector('.msg-status');
+                          if(statusEl) statusEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+                      }
+                  }
+              }
             });
             chat.pendingMessages = [];
-            if(activeChatId === chat.id) renderMessages(chat);
           }
         });
 
         conn.on('data', (data) => handleData(conn, data));
         conn.on('close', () => { 
           logDebug(`Connection closed: ${peerId}`);
-          chat.dialLock = false;
+          chat.dialInProgress = false;
           updateChatStatus(chat); 
           renderChatList(); 
         });
         conn.on('error', (err) => { 
           logDebug(`Conn Error (${peerId}): ${err}`, 'error');
-          chat.dialLock = false;
+          chat.dialInProgress = false;
           updateChatStatus(chat); 
         });
       }
@@ -1305,8 +1341,8 @@
           unread: 0,
           fingerprint: null,
           lastSeen: 0,
-          dialLock: false,
-          iceState: 'new'
+          iceState: 'new',
+          dialInProgress: false
         };
       }
 
@@ -1393,15 +1429,16 @@
 
         if(!chat) return;
 
+        // Fix S: Update lastSeen on any data
+        chat.lastSeen = Date.now();
+
         // Heartbeat
         if(data.kind === 'ping') {
-          chat.lastSeen = Date.now();
           conn.send({ kind: 'pong' });
           updateChatStatus(chat);
           return;
         }
         if(data.kind === 'pong') {
-          chat.lastSeen = Date.now();
           updateChatStatus(chat);
           return;
         }
@@ -1446,7 +1483,6 @@
           if(chat.type === 'direct') {
             chat.name = data.name;
             chat.conn = conn;
-            chat.lastSeen = Date.now();
             
             if(settings.secureSession) {
               if(chat.fingerprint && chat.fingerprint !== data.fingerprint) {
@@ -1548,7 +1584,11 @@
             if(chat.conn && chat.conn.open) {
               chat.conn.send(msgData);
               msgObj.status = 'sent';
+              // Update UI immediately
+              const el = document.getElementById(msgId);
+              if(el) el.querySelector('.msg-status').innerHTML = '<i class="fa-solid fa-check"></i>';
             } else {
+              // Fix I: Store msgId to update later
               chat.pendingMessages.push({ payload: payload, timestamp: timestamp, msgId: msgId });
             }
           } else {
@@ -1558,7 +1598,7 @@
             });
             msgObj.status = 'sent';
           }
-          if(activeChatId === chat.id) renderMessages(chat);
+          // No need to re-render all messages, we appended it
         });
       }
 
@@ -1708,8 +1748,9 @@
         if(chat) {
           const payload = { type: 'morse', content: JSON.stringify(morseSequence), ghost: ghostMode };
           const timestamp = new Date().toISOString();
+          const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
           
-          const msgObj = { from: 'me', type: 'morse', content: morseSequence, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
+          const msgObj = { id: msgId, from: 'me', type: 'morse', content: morseSequence, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
           chat.messages.push(msgObj);
           appendMessageToUI(msgObj);
           
@@ -1724,7 +1765,8 @@
              if(chat.conn && chat.conn.open) {
                  chat.conn.send(msgData);
                  msgObj.status = 'sent';
-                 if(activeChatId === chat.id) renderMessages(chat);
+                 const el = document.getElementById(msgId);
+                 if(el) el.querySelector('.msg-status').innerHTML = '<i class="fa-solid fa-check"></i>';
              }
           });
           
@@ -1963,10 +2005,11 @@
             return;
           }
 
-          // Backpressure Check for Mobile
-          if (chat.conn && chat.conn.dataChannel && chat.conn.dataChannel.bufferedAmount > 16000000) { // 16MB buffer limit
-             setTimeout(sendNextChunk, 50);
-             return;
+          // Fix Q: Backpressure control
+          if (chat.conn && chat.conn.dataChannel && chat.conn.dataChannel.bufferedAmount > 1024 * 1024) {
+              // Wait if buffer > 1MB
+              setTimeout(sendNextChunk, 50);
+              return;
           }
 
           const start = currentChunk * CHUNK_SIZE;
@@ -2009,8 +2052,8 @@
           return;
         }
 
-        // Scope incoming files by chat ID to prevent collisions
-        if(!incomingFiles[chat.id]) incomingFiles[chat.id] = {};
+        // Fix P: Scope incoming files by chat ID
+        if (!incomingFiles[chat.id]) incomingFiles[chat.id] = {};
 
         if(!incomingFiles[chat.id][data.fileId]) {
           incomingFiles[chat.id][data.fileId] = {
@@ -2096,9 +2139,8 @@
       async function getKey(pass) {
         const enc = new TextEncoder();
         const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), { name: "PBKDF2" }, false, ["deriveKey"]);
-        // Increased iterations to 100,000 for better security
         return crypto.subtle.deriveKey(
-          { name: "PBKDF2", salt: enc.encode("pepechat_salt_v9"), iterations: 100000, hash: "SHA-256" },
+          { name: "PBKDF2", salt: enc.encode("pepechat_salt"), iterations: 100000, hash: "SHA-256" }, // Fix N: Increased iterations
           keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
         );
       }
@@ -2110,15 +2152,25 @@
           const div = document.createElement('div');
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
           
-          // Strict Online Check: Must have open connection
-          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open);
-          const isConnecting = chat.type === 'direct' && !isOnline && chat.iceState === 'checking';
-          const isFailed = chat.type === 'direct' && !isOnline && (chat.iceState === 'failed' || chat.iceState === 'disconnected');
-
+          // Fix J: Better status logic
           let statusClass = '';
-          if(isOnline) statusClass = 'online';
-          else if(isConnecting) statusClass = 'connecting';
-          else if(isFailed) statusClass = 'failed';
+          let statusText = 'Offline';
+          
+          if (chat.type === 'group') {
+              statusClass = 'online';
+              statusText = 'Group';
+          } else {
+              if (chat.conn && chat.conn.open) {
+                  statusClass = 'online';
+                  statusText = 'Online';
+              } else if (chat.iceState === 'checking' || chat.dialInProgress) {
+                  statusClass = 'connecting';
+                  statusText = 'Connecting...';
+              } else if (chat.iceState === 'failed') {
+                  statusClass = 'failed';
+                  statusText = 'Failed';
+              }
+          }
 
           div.innerHTML = `
             <div class="avatar">${chat.name.substring(0,2).toUpperCase()}</div>
@@ -2128,7 +2180,7 @@
                 ${chat.unread > 0 ? `<span style="background:var(--danger); color:white; border-radius:10px; padding:0 6px; font-size:10px;">${chat.unread}</span>` : ''}
               </div>
               <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                ${chat.type === 'group' ? 'Group' : (isOnline ? 'Online' : (isConnecting ? 'Connecting...' : 'Offline'))}
+                ${statusText}
               </div>
             </div>
             <div class="status-dot ${statusClass}"></div>
@@ -2166,19 +2218,23 @@
 
       function updateChatStatus(chat) {
         if(activeChatId !== chat.id || chat.type === 'group') return;
-        // Strict check
-        const isOnline = chat.conn && chat.conn.open;
         
-        if(isOnline) {
-            els.chatStatus.textContent = "Online · Encrypted";
-            els.chatStatus.style.color = "var(--success)";
-        } else if (chat.iceState === 'checking') {
-            els.chatStatus.textContent = "Connecting (ICE)...";
-            els.chatStatus.style.color = "var(--warning)";
-        } else {
-            els.chatStatus.textContent = "Offline";
-            els.chatStatus.style.color = "#666";
+        let text = "Offline";
+        let color = "var(--text-muted)";
+        
+        if (chat.conn && chat.conn.open) {
+            text = "Online · Encrypted";
+            color = "var(--success)";
+        } else if (chat.iceState === 'checking' || chat.dialInProgress) {
+            text = "Connecting (ICE)...";
+            color = "var(--warning)";
+        } else if (chat.iceState === 'failed') {
+            text = "Connection Failed (NAT)";
+            color = "var(--danger)";
         }
+
+        els.chatStatus.textContent = text;
+        els.chatStatus.style.color = color;
       }
 
       function renderMessages(chat) {
@@ -2188,7 +2244,15 @@
 
       function appendMessageToUI(msg) {
         const div = document.createElement('div');
-        div.className = `msg ${msg.from === 'me' ? 'out' : (msg.from === 'system' ? 'system' : 'in')} ${msg.ghost ? 'ghost-fade' : ''}`;
+        // Fix T: System messages class
+        if (msg.from === 'system') {
+            div.className = 'msg system';
+            div.textContent = msg.content;
+            els.messages.appendChild(div);
+            return;
+        }
+
+        div.className = `msg ${msg.from === 'me' ? 'out' : 'in'} ${msg.ghost ? 'ghost-fade' : ''}`;
         
         if(!msg.id) msg.id = 'msg-' + Math.random().toString(36).substr(2,9);
         div.id = msg.id;
@@ -2346,17 +2410,19 @@
         if(sender) sender.remove();
         
         const text = clone.innerText.trim();
-        navigator.clipboard.writeText(text).then(() => {
-           const btn = el.querySelector('.copy-btn');
-           if(btn) {
-             btn.classList.remove('fa-copy');
-             btn.classList.add('fa-check');
-             setTimeout(() => {
-               btn.classList.remove('fa-check');
-               btn.classList.add('fa-copy');
-             }, 1000);
-           }
-        });
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+               const btn = el.querySelector('.copy-btn');
+               if(btn) {
+                 btn.classList.remove('fa-copy');
+                 btn.classList.add('fa-check');
+                 setTimeout(() => {
+                   btn.classList.remove('fa-check');
+                   btn.classList.add('fa-copy');
+                 }, 1000);
+               }
+            });
+        }
       };
 
       // --- FILE ACTIONS ---
@@ -2413,9 +2479,9 @@
         if(!myId) return;
         const chat = getActiveChat();
         const key = chat ? chat.passphrase : 'changeme';
-        // URL-safe encoding for QR
-        const safeKey = encodeURIComponent(btoa(unescape(encodeURIComponent(key))));
-        const url = `${APP_URL}?connect=${myId}&key=${safeKey}`;
+        // Fix D: URL Encode the key
+        const encodedKey = encodeURIComponent(btoa(key));
+        const url = `${window.location.origin}${window.location.pathname}?connect=${myId}&key=${encodedKey}`;
         
         openModal(els.qrModal);
         setTimeout(() => {
@@ -2457,8 +2523,8 @@
                 c.messages = []; 
                 c.pendingMessages = [];
                 c.lastSeen = 0;
-                c.dialLock = false;
                 c.iceState = 'new';
+                c.dialInProgress = false;
               });
             }
           } catch(e) {}
