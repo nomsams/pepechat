@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v8.0 · Morse & Robust ICE</title>
+  <title>PepeChat v9.0 · Unbreakable</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS -->
+  <!-- PeerJS (Beta for better WebRTC support) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -29,7 +29,6 @@
       --danger: #FF453A;
       --success: #30D158;
       --warning: #FFD60A;
-      --morse-bg: #1a1a1a;
       --morse-active: #FFD60A;
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --safe-bottom: env(safe-area-inset-bottom, 20px);
@@ -51,8 +50,8 @@
 
     /* --- LOGIN SCREEN --- */
     #loginScreen {
-      position: absolute; inset: 0; z-index: 100;
-      background: rgba(0,0,0,0.95); backdrop-filter: blur(20px);
+      position: absolute; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.98); backdrop-filter: blur(20px);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       transition: opacity 0.5s ease;
     }
@@ -84,8 +83,8 @@
     /* SIDEBAR */
     aside {
       width: 320px; border-right: 1px solid var(--glass-border);
-      display: flex; flex-direction: column; background: rgba(0,0,0,0.3);
-      z-index: 60;
+      display: flex; flex-direction: column; background: rgba(20,20,20,0.95);
+      z-index: 60; transition: transform 0.3s ease;
     }
     .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
     .user-profile { display: flex; align-items: center; gap: 10px; }
@@ -114,6 +113,7 @@
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
     .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
     .status-dot.connecting { background: var(--warning); animation: pulse 1s infinite; }
+    .status-dot.failed { background: var(--danger); }
 
     @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
@@ -127,7 +127,7 @@
     /* CHAT AREA */
     main {
       flex: 1; display: flex; flex-direction: column; position: relative;
-      background: rgba(0,0,0,0.2);
+      background: rgba(0,0,0,0.2); width: 100%;
     }
     .chat-header {
       padding: 15px 20px; border-bottom: 1px solid var(--glass-border);
@@ -149,12 +149,12 @@
       display: flex; flex-direction: column; gap: 8px;
     }
     .msg {
-      max-width: 75%; padding: 10px 14px; border-radius: 18px;
+      max-width: 85%; padding: 10px 14px; border-radius: 18px;
       font-size: 14px; line-height: 1.4; position: relative; word-wrap: break-word;
     }
     .msg.in { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
     .msg.out { align-self: flex-end; background: var(--bubble-out); border-bottom-right-radius: 4px; color: white; }
-    .msg.system { align-self: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); font-size: 11px; max-width: 90%; color: var(--text-muted); }
+    .msg.system { align-self: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); font-size: 11px; max-width: 90%; color: var(--text-muted); text-align: center; }
     
     /* File Card Styles */
     .file-card {
@@ -174,7 +174,7 @@
     
     /* Audio Visualizer */
     .audio-visualizer {
-      display: flex; align-items: center; gap: 10px; min-width: 200px; height: 40px;
+      display: flex; align-items: center; gap: 10px; min-width: 180px; height: 36px;
       background: rgba(0,0,0,0.2); border-radius: 20px; padding: 0 10px;
     }
     .play-icon { cursor: pointer; font-size: 14px; width: 20px; text-align: center; }
@@ -200,23 +200,24 @@
     .ghost-fade { animation: fadeOut 30s forwards; }
     @keyframes fadeOut { 0% { opacity: 1; } 90% { opacity: 0.1; filter: blur(2px); } 100% { opacity: 0; display: none; } }
 
-    /* INPUT AREA */
+    /* INPUT AREA - Mobile Optimized */
     .input-area {
-      padding: 15px; 
-      padding-bottom: calc(15px + var(--safe-bottom));
+      padding: 10px; 
+      padding-bottom: calc(10px + var(--safe-bottom));
       border-top: 1px solid var(--glass-border);
-      display: flex; gap: 8px; align-items: center; background: rgba(30,30,30,0.6);
+      display: flex; gap: 6px; align-items: center; background: rgba(30,30,30,0.8);
       transition: padding-bottom 0.3s;
+      flex-wrap: nowrap;
     }
     .msg-input {
       flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border);
-      border-radius: 20px; padding: 10px 15px; color: white; outline: none; font-size: 14px;
-      min-width: 0;
+      border-radius: 20px; padding: 10px 12px; color: white; outline: none; font-size: 14px;
+      min-width: 50px; /* Prevent collapse */
     }
     .msg-input:focus { border-color: var(--accent); }
     .file-btn {
       color: var(--accent); background: rgba(10,132,255,0.1); border: none;
-      width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .file-btn:hover { background: rgba(10,132,255,0.2); }
@@ -229,7 +230,7 @@
       font-family: monospace; font-size: 10px; color: var(--success);
       transition: height 0.3s; display: flex; flex-direction: column;
     }
-    #securityLog.open { height: 200px; }
+    #securityLog.open { height: 250px; }
     .log-header {
       padding: 8px 15px; background: #111; cursor: pointer; display: flex; justify-content: space-between;
     }
@@ -240,7 +241,7 @@
     .log-row { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; display: flex; gap: 10px; }
     .log-row.error { color: var(--danger); }
     .log-row.warn { color: var(--warning); }
-    .log-hash { color: #888; user-select: all; }
+    .log-hash { color: #888; user-select: all; word-break: break-all; }
     .log-btn { background: #333; border: 1px solid #555; color: white; font-size: 9px; padding: 2px 6px; cursor: pointer; border-radius: 4px; }
 
     /* VIRTUAL KEYBOARD */
@@ -369,7 +370,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v8.0</h1>
+      <h1>PepeChat v9.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
@@ -427,7 +428,7 @@
         <div class="header-controls">
           <button class="icon-btn" id="ghostToggle" title="Ghost Mode"><i class="fa-solid fa-ghost"></i></button>
           <button class="icon-btn" id="keySettingsBtn" title="Encryption"><i class="fa-solid fa-key"></i></button>
-          <button class="icon-btn" id="debugToggleBtn" title="Show Logs"><i class="fa-solid fa-bug"></i></button>
+          <button class="icon-btn" id="debugToggleBtn" title="Diagnostics"><i class="fa-solid fa-bug"></i></button>
           <button class="icon-btn danger" id="deleteChatBtn" title="Nuke Chat (Remote Wipe)"><i class="fa-solid fa-radiation"></i></button>
         </div>
       </div>
@@ -623,11 +624,12 @@
       'use strict';
 
       // --- CONFIG & STATE ---
-      const APP_URL = window.location.href.split('?')[0];
-      const STORAGE_KEY = 'pepechat_v8_data';
+      const APP_URL = window.location.origin + window.location.pathname;
+      const STORAGE_KEY = 'pepechat_v9_data';
       const CHUNK_SIZE = 16384; 
       
       // Robust ICE Servers for 4G/Mobile/Tor
+      // Note: Without a paid TURN server, we rely on a broad list of STUN servers.
       const ICE_SERVERS = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
@@ -645,7 +647,7 @@
       let activeChatId = null;
       let ghostMode = false;
       let heartbeatInterval = null;
-      let activeLogTab = 'debug'; // Default to debug for now
+      let activeLogTab = 'debug'; 
       
       let settings = {
         secureSession: false,
@@ -653,7 +655,7 @@
       };
 
       // File Transfer State
-      let incomingFiles = {}; 
+      let incomingFiles = {}; // Scoped by chat ID later
 
       // Virtual Keyboard State
       let vkActive = false;
@@ -681,7 +683,7 @@
       let morseOscillator = null;
       let morseGain = null;
       let morseStartTime = 0;
-      let morseSequence = []; // Array of durations
+      let morseSequence = []; 
       let morseTimeout = null;
 
       // --- DOM ELEMENTS ---
@@ -818,8 +820,11 @@
         // Check active chats
         chats.forEach(chat => {
           if(chat.type === 'direct' && (!chat.conn || !chat.conn.open)) {
-             connectToPeer(chat.id, chat.passphrase);
-             logDebug(`Attempting to rejoin ${chat.name}...`);
+             // Only reconnect if not currently dialing
+             if(!chat.dialLock) {
+                connectToPeer(chat.id, chat.passphrase);
+                logDebug(`Attempting to rejoin ${chat.name}...`);
+             }
           }
         });
       }
@@ -845,7 +850,10 @@
         setTimeout(() => {
           let decodedKey = 'changeme';
           if (keyBase64) {
-            try { decodedKey = atob(keyBase64); } catch(e){}
+            try { 
+                // URL-safe Base64 decode
+                decodedKey = decodeURIComponent(escape(atob(decodeURIComponent(keyBase64))));
+            } catch(e){ logDebug("Key decode error: " + e); }
           }
           connectToPeer(connectTo, decodedKey);
           window.history.replaceState({}, document.title, window.location.pathname);
@@ -857,7 +865,7 @@
         els.loginForm.addEventListener('submit', (e) => {
           e.preventDefault();
           let val = els.customIdInput.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
-          if(!val) val = generateRandomId(); // Auto-generate if empty
+          if(!val) val = generateRandomId(); 
           initApp(val);
         });
 
@@ -1072,7 +1080,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv8", 2, 15);
+        ctx.fillText("PepeChatv9", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -1102,9 +1110,12 @@
         logDebug(`Initializing PeerJS with ID: ${userId}`);
         logDebug(`Configuring ICE Servers (Google/Twilio) for NAT traversal...`);
 
+        // Destroy old peer if exists
+        if(peer) peer.destroy();
+
         // Robust Configuration for 4G/Tor
         peer = new Peer(myId, {
-          debug: 2, // Higher debug level for internal PeerJS logs
+          debug: 2, 
           config: {
             iceServers: ICE_SERVERS,
             sdpSemantics: 'unified-plan'
@@ -1149,29 +1160,43 @@
           renderChatList();
         }
         
-        // Prevent race condition: if we are already connected or connecting
+        // DIAL LOCK: Prevent glare (simultaneous connections)
+        if(chat.dialLock) {
+            logDebug(`Dial lock active for ${remoteId}, skipping...`);
+            return;
+        }
+        
         if(chat.conn && chat.conn.open) {
           setActiveChat(remoteId);
           return;
         }
 
+        chat.dialLock = true;
         logDebug(`Initiating connection to ${remoteId}...`);
+        
         const conn = peer.connect(remoteId, {
-          reliable: true,
           serialization: 'json'
         });
         
-        // Connection Timeout Logic
+        // Connection Timeout Logic (Extended for Mobile)
         const timeout = setTimeout(() => {
           if(!conn.open) {
-            logDebug(`Connection to ${remoteId} timed out (15s). NAT/Firewall issue likely.`, 'error');
+            logDebug(`Connection to ${remoteId} timed out (45s). NAT/Firewall issue likely.`, 'error');
             conn.close();
+            chat.dialLock = false;
             updateChatStatus(chat);
           }
-        }, 15000);
+        }, 45000);
 
-        conn.on('open', () => clearTimeout(timeout));
-        conn.on('error', (err) => { console.error("Connection Error:", err); clearTimeout(timeout); });
+        conn.on('open', () => {
+            clearTimeout(timeout);
+            chat.dialLock = false;
+        });
+        conn.on('error', (err) => { 
+            console.error("Connection Error:", err); 
+            clearTimeout(timeout);
+            chat.dialLock = false;
+        });
         
         handleConnection(conn, false, presetKey);
       }
@@ -1184,13 +1209,8 @@
           chat = createChatObject(peerId, presetKey);
           chats.set(peerId, chat);
         } else {
-          // If we have an existing open connection, don't overwrite it with a pending one unless necessary
           if (!chat.conn || !chat.conn.open) {
             chat.conn = conn;
-          } else if (inbound) {
-             // If inbound and we are already open, this might be a race. 
-             // Usually PeerJS handles this, but we log it.
-             logDebug(`Duplicate connection attempt from ${peerId}`);
           }
           if(presetKey) chat.passphrase = presetKey;
         }
@@ -1198,27 +1218,32 @@
         renderChatList();
         if(!activeChatId) setActiveChat(peerId);
 
-        // Verbose ICE Logging
-        conn.on('iceStateChanged', (state) => {
-          logDebug(`ICE State (${peerId}): ${state}`);
-          if(state === 'disconnected' || state === 'failed') {
-            logDebug(`ICE Failed. Likely NAT issue. Try using a VPN or different network.`, 'warn');
-          }
-        });
-
-        // Log Candidates to see if we are getting Public IPs
-        if(conn.peerConnection) {
-            conn.peerConnection.onicecandidate = (event) => {
+        // CRITICAL FIX: Do not overwrite onicecandidate. Use addEventListener on the underlying PC.
+        // This allows PeerJS to handle the handshake while we observe.
+        const pc = conn.peerConnection;
+        if (pc) {
+            pc.addEventListener('icecandidate', (event) => {
                 if (event.candidate) {
-                    logDebug(`ICE Candidate: ${event.candidate.candidate}`);
+                    logDebug(`ICE Candidate (${peerId}): ${event.candidate.candidate}`);
                 }
-            };
+            });
+            pc.addEventListener('iceconnectionstatechange', () => {
+                logDebug(`ICE State (${peerId}): ${pc.iceConnectionState}`);
+                chat.iceState = pc.iceConnectionState;
+                updateChatStatus(chat);
+            });
+            pc.addEventListener('connectionstatechange', () => {
+                logDebug(`PC State (${peerId}): ${pc.connectionState}`);
+            });
+        } else {
+            logDebug("Warning: No peerConnection object found on connection.", 'warn');
         }
 
         conn.on('open', () => {
-          logDebug(`Connection established with ${peerId}`);
+          logDebug(`DataChannel established with ${peerId}`);
           chat.conn = conn;
           chat.lastSeen = Date.now();
+          chat.dialLock = false;
           
           // Auto-close QR if open
           if(els.qrModal.classList.contains('open')) closeModals();
@@ -1232,19 +1257,22 @@
           updateChatStatus(chat);
           renderChatList();
           
+          // Flush Pending Messages
           if(chat.pendingMessages.length > 0) {
             addSystemMessage(chat, "Connection re-established. Sending queued messages...");
-            chat.pendingMessages.forEach(msg => {
-              encryptPayload(chat.passphrase, msg.payload).then(pkg => {
+            chat.pendingMessages.forEach(item => {
+              encryptPayload(chat.passphrase, item.payload).then(pkg => {
                 conn.send({
                   kind: 'message',
                   iv: pkg.iv,
                   data: pkg.data,
                   senderName: myId,
-                  timestamp: msg.timestamp
+                  timestamp: item.timestamp
                 });
               });
-              msg.status = 'sent';
+              // Update the actual message in UI state
+              const uiMsg = chat.messages.find(m => m.id === item.msgId);
+              if(uiMsg) uiMsg.status = 'sent';
             });
             chat.pendingMessages = [];
             if(activeChatId === chat.id) renderMessages(chat);
@@ -1254,11 +1282,13 @@
         conn.on('data', (data) => handleData(conn, data));
         conn.on('close', () => { 
           logDebug(`Connection closed: ${peerId}`);
+          chat.dialLock = false;
           updateChatStatus(chat); 
           renderChatList(); 
         });
         conn.on('error', (err) => { 
           logDebug(`Conn Error (${peerId}): ${err}`, 'error');
+          chat.dialLock = false;
           updateChatStatus(chat); 
         });
       }
@@ -1274,7 +1304,9 @@
           conn: null,
           unread: 0,
           fingerprint: null,
-          lastSeen: 0
+          lastSeen: 0,
+          dialLock: false,
+          iceState: 'new'
         };
       }
 
@@ -1486,8 +1518,10 @@
 
         const payload = { type: 'text', content: text, ghost: ghostMode };
         const timestamp = new Date().toISOString();
+        const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
         
         const msgObj = {
+          id: msgId,
           from: 'me',
           type: 'text',
           content: text,
@@ -1515,7 +1549,7 @@
               chat.conn.send(msgData);
               msgObj.status = 'sent';
             } else {
-              chat.pendingMessages.push({ payload: payload, timestamp: timestamp });
+              chat.pendingMessages.push({ payload: payload, timestamp: timestamp, msgId: msgId });
             }
           } else {
             chat.participants.forEach(pid => {
@@ -1600,8 +1634,9 @@
         const meta = { name: 'voice_msg.webm', size: 'Audio', type: 'audio/webm', hash: 'generated' };
         const payload = { type: 'audio', content: base64, meta: meta, ghost: ghostMode };
         const timestamp = new Date().toISOString();
+        const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
 
-        const msgObj = { from: 'me', type: 'audio', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending', progress: 0 };
+        const msgObj = { id: msgId, from: 'me', type: 'audio', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending', progress: 0 };
         chat.messages.push(msgObj);
         appendMessageToUI(msgObj);
 
@@ -1852,8 +1887,9 @@
         const meta = { name: name, size: 'Unknown', type: 'image/png', hash: 'generated' };
         const payload = { type: 'file', content: base64, meta: meta, ghost: ghostMode };
         const timestamp = new Date().toISOString();
+        const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
         
-        const msgObj = { from: 'me', type: 'file', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
+        const msgObj = { id: msgId, from: 'me', type: 'file', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
         chat.messages.push(msgObj);
         appendMessageToUI(msgObj);
         
@@ -1886,8 +1922,10 @@
 
           const payload = { type: 'file', content: base64, meta: meta, ghost: ghostMode };
           const timestamp = new Date().toISOString();
+          const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
 
           const msgObj = {
+            id: msgId,
             from: 'me',
             type: 'file',
             content: base64,
@@ -1917,12 +1955,18 @@
 
         let currentChunk = 0;
 
-        function sendNextChunk() {
+        async function sendNextChunk() {
           if (currentChunk >= totalChunks) {
             msgObj.status = 'sent';
             msgObj.progress = 100;
             updateProgressUI(msgObj);
             return;
+          }
+
+          // Backpressure Check for Mobile
+          if (chat.conn && chat.conn.dataChannel && chat.conn.dataChannel.bufferedAmount > 16000000) { // 16MB buffer limit
+             setTimeout(sendNextChunk, 50);
+             return;
           }
 
           const start = currentChunk * CHUNK_SIZE;
@@ -1953,7 +1997,7 @@
           updateProgressUI(msgObj);
 
           // Small delay to prevent flooding
-          setTimeout(sendNextChunk, 10); 
+          setTimeout(sendNextChunk, 5); 
         }
 
         sendNextChunk();
@@ -1965,8 +2009,11 @@
           return;
         }
 
-        if(!incomingFiles[data.fileId]) {
-          incomingFiles[data.fileId] = {
+        // Scope incoming files by chat ID to prevent collisions
+        if(!incomingFiles[chat.id]) incomingFiles[chat.id] = {};
+
+        if(!incomingFiles[chat.id][data.fileId]) {
+          incomingFiles[chat.id][data.fileId] = {
             chunks: [],
             receivedCount: 0,
             totalChunks: data.total,
@@ -1983,12 +2030,12 @@
             timestamp: data.timestamp,
             status: 'receiving'
           };
-          incomingFiles[data.fileId].msgObj = msgObj;
+          incomingFiles[chat.id][data.fileId].msgObj = msgObj;
           chat.messages.push(msgObj);
           if(activeChatId === chat.id) appendMessageToUI(msgObj);
         }
 
-        const fileData = incomingFiles[data.fileId];
+        const fileData = incomingFiles[chat.id][data.fileId];
         fileData.chunks[data.current] = data.data;
         fileData.receivedCount++;
         
@@ -2009,7 +2056,7 @@
               finalMsg.ghost = payload.ghost;
               finalMsg.status = 'received';
               
-              delete incomingFiles[data.fileId];
+              delete incomingFiles[chat.id][data.fileId];
               if(activeChatId === chat.id) renderMessages(chat); 
             });
           } catch(e) { console.error("Reassembly failed", e); }
@@ -2049,8 +2096,9 @@
       async function getKey(pass) {
         const enc = new TextEncoder();
         const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), { name: "PBKDF2" }, false, ["deriveKey"]);
+        // Increased iterations to 100,000 for better security
         return crypto.subtle.deriveKey(
-          { name: "PBKDF2", salt: enc.encode("pepechat_salt"), iterations: 1000, hash: "SHA-256" },
+          { name: "PBKDF2", salt: enc.encode("pepechat_salt_v9"), iterations: 100000, hash: "SHA-256" },
           keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
         );
       }
@@ -2064,7 +2112,13 @@
           
           // Strict Online Check: Must have open connection
           const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open);
-          const isConnecting = chat.type === 'direct' && !isOnline && chat.conn && !chat.conn.open;
+          const isConnecting = chat.type === 'direct' && !isOnline && chat.iceState === 'checking';
+          const isFailed = chat.type === 'direct' && !isOnline && (chat.iceState === 'failed' || chat.iceState === 'disconnected');
+
+          let statusClass = '';
+          if(isOnline) statusClass = 'online';
+          else if(isConnecting) statusClass = 'connecting';
+          else if(isFailed) statusClass = 'failed';
 
           div.innerHTML = `
             <div class="avatar">${chat.name.substring(0,2).toUpperCase()}</div>
@@ -2077,7 +2131,7 @@
                 ${chat.type === 'group' ? 'Group' : (isOnline ? 'Online' : (isConnecting ? 'Connecting...' : 'Offline'))}
               </div>
             </div>
-            <div class="status-dot ${isOnline ? 'online' : (isConnecting ? 'connecting' : '')}"></div>
+            <div class="status-dot ${statusClass}"></div>
           `;
           div.onclick = () => setActiveChat(chat.id);
           els.chatList.appendChild(div);
@@ -2114,8 +2168,17 @@
         if(activeChatId !== chat.id || chat.type === 'group') return;
         // Strict check
         const isOnline = chat.conn && chat.conn.open;
-        els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline";
-        els.chatStatus.style.color = isOnline ? "var(--success)" : "var(--warning)";
+        
+        if(isOnline) {
+            els.chatStatus.textContent = "Online · Encrypted";
+            els.chatStatus.style.color = "var(--success)";
+        } else if (chat.iceState === 'checking') {
+            els.chatStatus.textContent = "Connecting (ICE)...";
+            els.chatStatus.style.color = "var(--warning)";
+        } else {
+            els.chatStatus.textContent = "Offline";
+            els.chatStatus.style.color = "#666";
+        }
       }
 
       function renderMessages(chat) {
@@ -2125,7 +2188,7 @@
 
       function appendMessageToUI(msg) {
         const div = document.createElement('div');
-        div.className = `msg ${msg.from === 'me' ? 'out' : 'in'} ${msg.ghost ? 'ghost-fade' : ''}`;
+        div.className = `msg ${msg.from === 'me' ? 'out' : (msg.from === 'system' ? 'system' : 'in')} ${msg.ghost ? 'ghost-fade' : ''}`;
         
         if(!msg.id) msg.id = 'msg-' + Math.random().toString(36).substr(2,9);
         div.id = msg.id;
@@ -2258,8 +2321,6 @@
         const canvas = container.querySelector('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Simple fake waveform for visual effect since analyzing blob takes resources
-        // Real analysis would require decoding AudioContext which is heavy for list
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
         
@@ -2352,7 +2413,9 @@
         if(!myId) return;
         const chat = getActiveChat();
         const key = chat ? chat.passphrase : 'changeme';
-        const url = `${APP_URL}?connect=${myId}&key=${btoa(key)}`;
+        // URL-safe encoding for QR
+        const safeKey = encodeURIComponent(btoa(unescape(encodeURIComponent(key))));
+        const url = `${APP_URL}?connect=${myId}&key=${safeKey}`;
         
         openModal(els.qrModal);
         setTimeout(() => {
@@ -2394,6 +2457,8 @@
                 c.messages = []; 
                 c.pendingMessages = [];
                 c.lastSeen = 0;
+                c.dialLock = false;
+                c.iceState = 'new';
               });
             }
           } catch(e) {}
