@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v10.0 · Glare Control & Diagnostics</title>
+  <title>PepeChat v11.0 · Glare Fix & IndexedDB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
@@ -29,7 +29,6 @@
       --danger: #FF453A;
       --success: #30D158;
       --warning: #FFD60A;
-      --morse-bg: #1a1a1a;
       --morse-active: #FFD60A;
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --safe-bottom: env(safe-area-inset-bottom, 20px);
@@ -74,18 +73,27 @@
 
     /* --- MAIN APP LAYOUT --- */
     #app {
+      position: relative; /* IMPORTANT: Stacking context root */
       width: 100%; height: 100%; max-width: 1600px; display: flex;
       background: var(--glass-panel); backdrop-filter: blur(30px);
       box-shadow: 0 0 50px rgba(0,0,0,0.8); opacity: 0; transform: scale(0.98);
       transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
     }
     #app.visible { opacity: 1; transform: scale(1); }
+
+    /* SIDEBAR OVERLAY (Moved inside #app) */
+    .sidebar-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 55;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 
     /* SIDEBAR */
     aside {
       width: 320px; border-right: 1px solid var(--glass-border);
       display: flex; flex-direction: column; background: rgba(0,0,0,0.3);
-      z-index: 60;
+      z-index: 60; position: relative;
     }
     .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
     .user-profile { display: flex; align-items: center; gap: 10px; }
@@ -118,17 +126,10 @@
 
     @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-    /* SIDEBAR OVERLAY (Mobile) */
-    .sidebar-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 55;
-      opacity: 0; pointer-events: none; transition: opacity 0.3s;
-    }
-    .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
-
     /* CHAT AREA */
     main {
       flex: 1; display: flex; flex-direction: column; position: relative;
-      background: rgba(0,0,0,0.2);
+      background: rgba(0,0,0,0.2); z-index: 50;
     }
     .chat-header {
       padding: 15px 20px; border-bottom: 1px solid var(--glass-border);
@@ -373,7 +374,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v10.0</h1>
+      <h1>PepeChat v11.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
@@ -384,9 +385,6 @@
       </form>
     </div>
   </div>
-
-  <!-- SIDEBAR OVERLAY -->
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <!-- MORSE OVERLAY -->
   <div class="morse-overlay" id="morseOverlay">
@@ -399,6 +397,9 @@
 
   <!-- MAIN APP -->
   <div id="app">
+    <!-- SIDEBAR OVERLAY (MOBILE) - Moved inside #app for correct stacking -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <aside id="sidebar">
       <div class="sidebar-header">
         <div class="user-profile">
@@ -459,8 +460,8 @@
       <div id="securityLog">
         <div class="log-header" id="logHeader">
           <div class="log-tabs">
-            <span class="log-tab active" id="tabSec">Security Log</span>
-            <span class="log-tab" id="tabDebug">Debug Log</span>
+            <span class="log-tab" id="tabSec">Security Log</span>
+            <span class="log-tab active" id="tabDebug">Debug Log</span>
           </div>
           <div style="display:flex; gap:10px;">
             <button class="log-btn" id="viewRawDataBtn">View Raw Data</button>
@@ -554,9 +555,12 @@
           <span class="slider"></span>
         </label>
       </div>
-      <p style="font-size:11px; color:#666; text-align:left;">
-        If enabled, peers cannot reconnect with the same ID unless their hardware fingerprint matches the previous session.
-      </p>
+      <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+      <h4>Custom TURN Server (Optional)</h4>
+      <input type="text" id="turnUrlInput" class="login-input" placeholder="turn:your-server.com:3478" style="font-size:12px; padding:8px;">
+      <input type="text" id="turnUserInput" class="login-input" placeholder="Username" style="font-size:12px; padding:8px;">
+      <input type="password" id="turnPassInput" class="login-input" placeholder="Password" style="font-size:12px; padding:8px;">
+      <button class="btn-primary" id="saveTurnBtn" style="padding:8px; font-size:12px;">Save & Reconnect</button>
       <div class="modal-actions">
         <button class="btn-sec" onclick="closeModals()">Close</button>
       </div>
@@ -628,33 +632,17 @@
 
       // --- CONFIG & STATE ---
       const APP_URL = `${window.location.origin}${window.location.pathname}`;
-      const STORAGE_KEY = 'pepechat_v10_data';
       const CHUNK_SIZE = 16384; 
       
-      // Robust ICE Configuration
-      // Supports adding TURN servers for 4G/Mobile reliability
-      const ICE_CFG = {
-        forceRelay: false, 
-        iceCandidatePoolSize: 8,
-        servers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' },
-          // Add TURN servers here if available:
-          // { urls: 'turn:your-turn-server.com:3478', username: 'user', credential: 'password' }
-        ]
-      };
-
-      function getRtcConfig() {
-        return {
-          iceServers: ICE_CFG.servers,
-          iceTransportPolicy: ICE_CFG.forceRelay ? 'relay' : 'all',
-          iceCandidatePoolSize: ICE_CFG.iceCandidatePoolSize
-        };
-      }
+      // Default ICE Servers (STUN only)
+      const DEFAULT_ICE = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ];
 
       let peer = null;
       let myId = null;
@@ -668,7 +656,10 @@
       
       let settings = {
         secureSession: false,
-        allowFiles: true
+        allowFiles: true,
+        turnUrl: '',
+        turnUser: '',
+        turnPass: ''
       };
 
       // Connection Registry for Glare Handling
@@ -705,6 +696,49 @@
       let morseStartTime = 0;
       let morseSequence = []; 
       let morseTimeout = null;
+
+      // --- INDEXED DB WRAPPER ---
+      const DB_NAME = 'PepeChatDB';
+      const DB_VERSION = 1;
+      let db = null;
+
+      function initDB() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+          request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains('messages')) {
+              db.createObjectStore('messages', { keyPath: 'id' });
+            }
+          };
+          request.onsuccess = (e) => {
+            db = e.target.result;
+            resolve(db);
+          };
+          request.onerror = (e) => reject(e);
+        });
+      }
+
+      function saveMessageToDB(msg) {
+        if (!db) return;
+        const tx = db.transaction(['messages'], 'readwrite');
+        tx.objectStore('messages').put(msg);
+      }
+
+      function loadMessagesFromDB(chatId) {
+        return new Promise((resolve) => {
+          if (!db) return resolve([]);
+          const tx = db.transaction(['messages'], 'readonly');
+          const store = tx.objectStore('messages');
+          const request = store.getAll();
+          request.onsuccess = () => {
+            // Filter in memory (simple for now)
+            const all = request.result;
+            const chatMsgs = all.filter(m => m.chatId === chatId).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+            resolve(chatMsgs);
+          };
+        });
+      }
 
       // --- DOM ELEMENTS ---
       const els = {
@@ -781,6 +815,10 @@
         settingsModal: document.getElementById('settingsModal'),
         secureSessionToggle: document.getElementById('secureSessionToggle'),
         allowFilesToggle: document.getElementById('allowFilesToggle'),
+        turnUrlInput: document.getElementById('turnUrlInput'),
+        turnUserInput: document.getElementById('turnUserInput'),
+        turnPassInput: document.getElementById('turnPassInput'),
+        saveTurnBtn: document.getElementById('saveTurnBtn'),
 
         keyModal: document.getElementById('keyModal'),
         keyInput: document.getElementById('keyInput'),
@@ -812,6 +850,7 @@
 
       // --- INITIALIZATION ---
       document.addEventListener('DOMContentLoaded', async () => {
+        await initDB();
         myFingerprint = await generateFingerprint();
         logSecurity(`My Fingerprint Hash: ${myFingerprint.substring(0, 16)}...`);
         
@@ -832,7 +871,7 @@
         });
       });
 
-      // --- GLARE CONTROL ---
+      // --- GLARE CONTROL (CRITICAL FIX) ---
       function preferredDirectionForPeer(peerId) {
         if (!myId) return 'in';
         return (String(myId) < String(peerId)) ? 'out' : 'in';
@@ -842,6 +881,9 @@
         const existing = connRegistry.get(peerId);
         conn.__dir = dir;
         conn.__createdAt = Date.now();
+
+        // IDEMPOTENCY: If same object, allow it.
+        if (existing && existing.conn === conn) return true;
 
         if (!existing) {
           connRegistry.set(peerId, { conn, dir, createdAt: conn.__createdAt });
@@ -1128,6 +1170,14 @@
           settings.allowFiles = e.target.checked;
           saveStorage();
         });
+        els.saveTurnBtn.addEventListener('click', () => {
+          settings.turnUrl = els.turnUrlInput.value.trim();
+          settings.turnUser = els.turnUserInput.value.trim();
+          settings.turnPass = els.turnPassInput.value.trim();
+          saveStorage();
+          alert("Settings saved. Please refresh to apply new ICE config.");
+          closeModals();
+        });
       }
 
       // --- LOGGING SYSTEM ---
@@ -1171,7 +1221,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv10", 2, 15);
+        ctx.fillText("PepeChatv11", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -1191,6 +1241,21 @@
       }
 
       // --- CORE LOGIC ---
+
+      function getRtcConfig() {
+        const servers = [...DEFAULT_ICE];
+        if (settings.turnUrl) {
+          servers.push({
+            urls: settings.turnUrl,
+            username: settings.turnUser,
+            credential: settings.turnPass
+          });
+        }
+        return {
+          iceServers: servers,
+          sdpSemantics: 'unified-plan'
+        };
+      }
 
       function initApp(userId, callback) {
         myId = userId;
@@ -1246,6 +1311,7 @@
           renderChatList();
         }
         
+        // Fix K: Dial Lock / Glare prevention
         if(chat.dialInProgress) {
             logDebug(`Dial already in progress for ${remoteId}`);
             return;
@@ -1257,6 +1323,8 @@
         }
 
         chat.dialInProgress = true;
+        setActiveChat(remoteId); // Fix B: Auto-open chat
+        updateChatStatus(chat);
         logDebug(`Initiating connection to ${remoteId}...`);
         
         const conn = peer.connect(remoteId, {
@@ -1265,12 +1333,8 @@
           metadata: { from: myId, ts: Date.now() }
         });
         
-        // Enforce single-connection policy
-        if (!adoptConnection(remoteId, conn, 'out')) {
-          chat.dialInProgress = false;
-          updateChatStatus(chat);
-          return;
-        }
+        // NOTE: We do NOT call adoptConnection here to avoid self-closing.
+        // We let handleConnection manage the adoption logic.
         
         // Connection Timeout Logic
         const timeout = setTimeout(() => {
@@ -1306,11 +1370,11 @@
           if (presetKey) chat.passphrase = presetKey;
         }
 
-        // Register as incoming and enforce single-conn policy
+        // Register connection and enforce single-conn policy
         const dir = inbound ? 'in' : 'out';
         if (!adoptConnection(peerId, conn, dir)) {
           logDebug(`Dropped ${dir} connection from/to ${peerId} (duplicate/glare policy)`, 'warn');
-          return;
+          return false;
         }
 
         if (!chat.conn || !chat.conn.open) {
@@ -1409,7 +1473,6 @@
         conn.on('close', () => { 
           logDebug(`Connection closed: ${peerId}`);
           chat.dialInProgress = false;
-          // Cleanup registry if this was the active connection
           const reg = connRegistry.get(peerId);
           if (reg && reg.conn === conn) connRegistry.delete(peerId);
           
@@ -1422,7 +1485,6 @@
           chat.dialInProgress = false;
           updateChatStatus(chat); 
 
-          // Aggressive cleanup on negotiation failures + schedule ONE backoff retry
           if (msg.toLowerCase().includes('negotiation')) {
             try { conn.close(); } catch {}
             const backoff = 800 + Math.floor(Math.random() * 1200);
@@ -1434,6 +1496,7 @@
             }, backoff);
           }
         });
+        return true;
       }
 
       function createChatObject(peerId, presetKey) {
@@ -1615,6 +1678,8 @@
           decryptMessage(chat.passphrase, data).then(payload => {
             if(!payload) return;
             const msgObj = {
+              id: 'msg-' + Math.random().toString(36).substr(2,9),
+              chatId: chat.id,
               from: 'them',
               senderName: data.senderName || conn.peer,
               type: payload.type,
@@ -1625,6 +1690,7 @@
               status: 'received'
             };
             chat.messages.push(msgObj);
+            saveMessageToDB(msgObj); // Persist
             if(activeChatId === chat.id) {
               appendMessageToUI(msgObj);
             } else {
@@ -1663,6 +1729,7 @@
         
         const msgObj = {
           id: msgId,
+          chatId: chat.id,
           from: 'me',
           type: 'text',
           content: text,
@@ -1671,6 +1738,7 @@
           status: 'pending'
         };
         chat.messages.push(msgObj);
+        saveMessageToDB(msgObj); // Persist
         appendMessageToUI(msgObj);
         els.msgInput.value = '';
 
@@ -1777,8 +1845,9 @@
         const timestamp = new Date().toISOString();
         const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
 
-        const msgObj = { id: msgId, from: 'me', type: 'audio', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending', progress: 0 };
+        const msgObj = { id: msgId, chatId: chat.id, from: 'me', type: 'audio', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending', progress: 0 };
         chat.messages.push(msgObj);
+        saveMessageToDB(msgObj);
         appendMessageToUI(msgObj);
 
         encryptPayload(chat.passphrase, payload).then(pkg => {
@@ -1847,8 +1916,9 @@
           const timestamp = new Date().toISOString();
           const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
           
-          const msgObj = { id: msgId, from: 'me', type: 'morse', content: morseSequence, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
+          const msgObj = { id: msgId, chatId: chat.id, from: 'me', type: 'morse', content: morseSequence, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
           chat.messages.push(msgObj);
+          saveMessageToDB(msgObj);
           appendMessageToUI(msgObj);
           
           encryptPayload(chat.passphrase, payload).then(pkg => {
@@ -2027,8 +2097,9 @@
         const timestamp = new Date().toISOString();
         const msgId = 'msg-' + Math.random().toString(36).substr(2,9);
         
-        const msgObj = { id: msgId, from: 'me', type: 'file', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
+        const msgObj = { id: msgId, chatId: chat.id, from: 'me', type: 'file', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
         chat.messages.push(msgObj);
+        saveMessageToDB(msgObj);
         appendMessageToUI(msgObj);
         
         encryptPayload(chat.passphrase, payload).then(pkg => {
@@ -2064,6 +2135,7 @@
 
           const msgObj = {
             id: msgId,
+            chatId: chat.id,
             from: 'me',
             type: 'file',
             content: base64,
@@ -2075,6 +2147,7 @@
           };
           
           chat.messages.push(msgObj);
+          saveMessageToDB(msgObj);
           appendMessageToUI(msgObj);
 
           encryptPayload(chat.passphrase, payload).then(pkg => {
@@ -2160,6 +2233,8 @@
           };
           
           const msgObj = {
+            id: 'msg-' + Math.random().toString(36).substr(2,9),
+            chatId: chat.id,
             from: 'them',
             senderName: data.senderName,
             type: 'file_transfer', 
@@ -2193,6 +2268,7 @@
               finalMsg.ghost = payload.ghost;
               finalMsg.status = 'received';
               
+              saveMessageToDB(finalMsg); // Persist
               delete incomingFiles[chat.id][data.fileId];
               if(activeChatId === chat.id) renderMessages(chat); 
             });
@@ -2284,6 +2360,12 @@
       }
 
       function setActiveChat(id) {
+        // Fix D: Close sidebar immediately on mobile
+        if (window.innerWidth <= 768) {
+          els.sidebar.classList.remove('open');
+          els.sidebarOverlay.classList.remove('visible');
+        }
+
         activeChatId = id;
         const chat = chats.get(id);
         if(!chat) {
@@ -2302,11 +2384,6 @@
         
         renderMessages(chat);
         renderChatList();
-        
-        if(window.innerWidth <= 768) {
-          els.sidebar.classList.remove('open');
-          els.sidebarOverlay.classList.remove('visible');
-        }
       }
 
       function updateChatStatus(chat) {
@@ -2603,14 +2680,17 @@
               settings = data.settings;
               els.secureSessionToggle.checked = settings.secureSession;
               if(settings.allowFiles !== undefined) els.allowFilesToggle.checked = settings.allowFiles;
+              if(settings.turnUrl) els.turnUrlInput.value = settings.turnUrl;
+              if(settings.turnUser) els.turnUserInput.value = settings.turnUser;
+              if(settings.turnPass) els.turnPassInput.value = settings.turnPass;
             }
             if(data.chats) {
               chats = new Map(data.chats);
-              chats.forEach(c => { 
+              chats.forEach(async c => { 
                 c.conn = null; 
                 c.connections = {}; 
                 c.unread = 0; 
-                c.messages = []; 
+                c.messages = await loadMessagesFromDB(c.id); // Load from DB
                 c.pendingMessages = [];
                 c.lastSeen = 0;
                 c.iceState = 'new';
