@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v6.1 · Resilient & Chunked</title>
+  <title>PepeChat v7.0 · Audio & Robust P2P</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS -->
+  <!-- PeerJS (Using latest beta for better browser compatibility) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -148,7 +148,7 @@
       display: flex; flex-direction: column; gap: 8px;
     }
     .msg {
-      max-width: 70%; padding: 10px 14px; border-radius: 18px;
+      max-width: 75%; padding: 10px 14px; border-radius: 18px;
       font-size: 14px; line-height: 1.4; position: relative; word-wrap: break-word;
     }
     .msg.in { align-self: flex-start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
@@ -171,6 +171,16 @@
     .file-btn-small:hover { background: rgba(255,255,255,0.2); }
     .file-info-icon { color: var(--accent); cursor: pointer; margin-left: auto; padding: 0 5px; }
     
+    /* Audio Player */
+    .audio-player {
+      display: flex; align-items: center; gap: 10px; min-width: 200px;
+    }
+    audio {
+      height: 30px; width: 100%; filter: invert(1) hue-rotate(180deg);
+      border-radius: 20px;
+    }
+    .msg.out audio { filter: invert(0); }
+
     /* Progress Bar */
     .progress-track {
       width: 100%; height: 4px; background: rgba(255,255,255,0.1);
@@ -196,20 +206,23 @@
       padding: 15px; 
       padding-bottom: calc(15px + var(--safe-bottom));
       border-top: 1px solid var(--glass-border);
-      display: flex; gap: 10px; align-items: center; background: rgba(30,30,30,0.6);
+      display: flex; gap: 8px; align-items: center; background: rgba(30,30,30,0.6);
       transition: padding-bottom 0.3s;
     }
     .msg-input {
       flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border);
       border-radius: 20px; padding: 10px 15px; color: white; outline: none; font-size: 14px;
+      min-width: 0; /* Flexbox fix */
     }
     .msg-input:focus { border-color: var(--accent); }
     .file-btn {
       color: var(--accent); background: rgba(10,132,255,0.1); border: none;
       width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .file-btn:hover { background: rgba(10,132,255,0.2); }
+    .file-btn.recording { background: var(--danger); color: white; animation: pulse-red 1s infinite; }
+    @keyframes pulse-red { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
     /* SECURITY LOG */
     #securityLog {
@@ -221,8 +234,13 @@
     .log-header {
       padding: 8px 15px; background: #111; cursor: pointer; display: flex; justify-content: space-between;
     }
+    .log-tabs { display: flex; gap: 15px; }
+    .log-tab { opacity: 0.5; cursor: pointer; }
+    .log-tab.active { opacity: 1; text-decoration: underline; color: var(--accent); }
     .log-content { padding: 10px; overflow-y: auto; flex: 1; }
     .log-row { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; display: flex; gap: 10px; }
+    .log-row.error { color: var(--danger); }
+    .log-row.warn { color: var(--warning); }
     .log-hash { color: #888; user-select: all; }
     .log-btn { background: #333; border: 1px solid #555; color: white; font-size: 9px; padding: 2px 6px; cursor: pointer; border-radius: 4px; }
 
@@ -289,6 +307,16 @@
       transition: top 0.1s, left 0.1s;
     }
 
+    /* Recording Overlay */
+    #recordingOverlay {
+      position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--danger); padding: 10px 20px; border-radius: 30px;
+      color: white; font-weight: bold; display: none; align-items: center; gap: 10px;
+      box-shadow: 0 5px 20px rgba(255, 69, 58, 0.4); z-index: 50;
+    }
+    #recordingOverlay.visible { display: flex; animation: bounceIn 0.3s; }
+    @keyframes bounceIn { 0% { transform: translate(-50%, 20px); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
+
     @media (max-width: 768px) {
       aside { position: absolute; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #111; width: 85%; }
       aside.open { transform: translateX(0); }
@@ -318,13 +346,13 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v6.1</h1>
+      <h1>PepeChat v7.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
-        <input type="text" id="customIdInput" class="login-input" placeholder="Choose a Username / ID" autocomplete="off" maxlength="20">
+        <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
         <button type="submit" class="btn-primary">Start Chatting</button>
         <div style="margin-top: 15px; font-size: 12px; color: #666;">
-          Or <a href="#" id="genRandomLink" style="color: var(--accent);">generate random</a>
+          Tor & Mobile Optimized
         </div>
       </form>
     </div>
@@ -375,9 +403,14 @@
         <div class="msg system">Select a chat or create a group to begin.</div>
       </div>
 
+      <div id="recordingOverlay">
+        <i class="fa-solid fa-microphone-lines fa-beat"></i> Recording... <span id="recTimer">0:00</span>
+      </div>
+
       <form class="input-area" id="msgForm">
         <button type="button" class="file-btn" id="uploadBtn"><i class="fa-solid fa-paperclip"></i></button>
         <button type="button" class="file-btn" id="drawBtn" title="Collaborative Drawing"><i class="fa-solid fa-paintbrush"></i></button>
+        <button type="button" class="file-btn" id="micBtn" title="Hold to Record"><i class="fa-solid fa-microphone"></i></button>
         <input type="file" id="fileInput" class="hidden-file">
         <input type="text" class="msg-input" id="msgInput" placeholder="Type message..." autocomplete="off">
         <button type="button" class="file-btn" id="vkToggleBtn" title="Virtual Keyboard"><i class="fa-solid fa-keyboard"></i></button>
@@ -387,9 +420,14 @@
       <!-- SECURITY LOG -->
       <div id="securityLog">
         <div class="log-header" id="logHeader">
-          <span><i class="fa-solid fa-terminal"></i> Security Log</span>
-          <button class="log-btn" id="viewRawDataBtn">View Raw Data</button>
-          <i class="fa-solid fa-chevron-up"></i>
+          <div class="log-tabs">
+            <span class="log-tab active" id="tabSec">Security Log</span>
+            <span class="log-tab" id="tabDebug">Debug Log</span>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="log-btn" id="viewRawDataBtn">View Raw Data</button>
+            <i class="fa-solid fa-chevron-up"></i>
+          </div>
         </div>
         <div class="log-content" id="logContent">
           <div class="log-row">System: Zero Trust Rendering Active.</div>
@@ -552,9 +590,19 @@
 
       // --- CONFIG & STATE ---
       const APP_URL = window.location.href.split('?')[0];
-      const STORAGE_KEY = 'pepechat_v6_data';
+      const STORAGE_KEY = 'pepechat_v7_data';
       const CHUNK_SIZE = 16384; // 16KB chunk size for reliable P2P transfer
       
+      // Robust ICE Servers for 4G/Mobile/Tor
+      const ICE_SERVERS = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ];
+
       let peer = null;
       let myId = null;
       let myFingerprint = null;
@@ -563,6 +611,7 @@
       let activeChatId = null;
       let ghostMode = false;
       let heartbeatInterval = null;
+      let activeLogTab = 'sec'; // 'sec' or 'debug'
       
       let settings = {
         secureSession: false,
@@ -570,7 +619,7 @@
       };
 
       // File Transfer State
-      let incomingFiles = {}; // { fileId: { buffer: [], received: 0, total: 0, meta: {} } }
+      let incomingFiles = {}; 
 
       // Virtual Keyboard State
       let vkActive = false;
@@ -585,12 +634,18 @@
       let lastX = 0;
       let lastY = 0;
 
+      // Audio Recording State
+      let mediaRecorder = null;
+      let audioChunks = [];
+      let isRecording = false;
+      let recStartTime = 0;
+      let recTimerInterval = null;
+
       // --- DOM ELEMENTS ---
       const els = {
         loginScreen: document.getElementById('loginScreen'),
         loginForm: document.getElementById('loginForm'),
         customIdInput: document.getElementById('customIdInput'),
-        genRandomLink: document.getElementById('genRandomLink'),
         app: document.getElementById('app'),
         sidebar: document.getElementById('sidebar'),
         sidebarOverlay: document.getElementById('sidebarOverlay'),
@@ -615,6 +670,9 @@
         fileInput: document.getElementById('fileInput'),
         uploadBtn: document.getElementById('uploadBtn'),
         drawBtn: document.getElementById('drawBtn'),
+        micBtn: document.getElementById('micBtn'),
+        recordingOverlay: document.getElementById('recordingOverlay'),
+        recTimer: document.getElementById('recTimer'),
         vkToggleBtn: document.getElementById('vkToggleBtn'),
         sendBtn: document.getElementById('sendBtn'),
         ghostToggle: document.getElementById('ghostToggle'),
@@ -626,6 +684,8 @@
         logHeader: document.getElementById('logHeader'),
         logContent: document.getElementById('logContent'),
         viewRawDataBtn: document.getElementById('viewRawDataBtn'),
+        tabSec: document.getElementById('tabSec'),
+        tabDebug: document.getElementById('tabDebug'),
 
         // VK
         virtualKeyboard: document.getElementById('virtualKeyboard'),
@@ -702,13 +762,13 @@
       function reconnectAll() {
         if(peer && peer.disconnected) {
           peer.reconnect();
-          logSecurity("App woke up. Reconnecting to signaling server...");
+          logDebug("App woke up. Reconnecting to signaling server...");
         }
         // Check active chats
         chats.forEach(chat => {
           if(chat.type === 'direct' && (!chat.conn || !chat.conn.open)) {
              connectToPeer(chat.id, chat.passphrase);
-             logSecurity(`Attempting to rejoin ${chat.name}...`);
+             logDebug(`Attempting to rejoin ${chat.name}...`);
           }
         });
       }
@@ -721,41 +781,33 @@
 
         if (userParam) {
           initApp(userParam, () => {
-            if (connectTo) {
-              setTimeout(() => {
-                let decodedKey = 'changeme';
-                if (keyBase64) {
-                  try { decodedKey = atob(keyBase64); } catch(e){}
-                }
-                connectToPeer(connectTo, decodedKey);
-                window.history.replaceState({}, document.title, window.location.pathname);
-              }, 1000);
-            }
+            if (connectTo) handleAutoConnect(connectTo, keyBase64);
           });
         } else if (connectTo) {
           initApp(generateRandomId(), () => {
-             setTimeout(() => {
-                let decodedKey = 'changeme';
-                if (keyBase64) {
-                  try { decodedKey = atob(keyBase64); } catch(e){}
-                }
-                connectToPeer(connectTo, decodedKey);
-                window.history.replaceState({}, document.title, window.location.pathname);
-              }, 1000);
+             handleAutoConnect(connectTo, keyBase64);
           });
         }
+      }
+
+      function handleAutoConnect(connectTo, keyBase64) {
+        setTimeout(() => {
+          let decodedKey = 'changeme';
+          if (keyBase64) {
+            try { decodedKey = atob(keyBase64); } catch(e){}
+          }
+          connectToPeer(connectTo, decodedKey);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
       }
 
       function setupEventListeners() {
         // Login
         els.loginForm.addEventListener('submit', (e) => {
           e.preventDefault();
-          const val = els.customIdInput.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
-          if(val) initApp(val);
-        });
-        els.genRandomLink.addEventListener('click', (e) => {
-          e.preventDefault();
-          initApp(generateRandomId());
+          let val = els.customIdInput.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
+          if(!val) val = generateRandomId(); // Auto-generate if empty
+          initApp(val);
         });
 
         // Sidebar & Overlay
@@ -802,6 +854,13 @@
         
         els.drawBtn.addEventListener('click', () => startDrawingSession(false));
 
+        // Audio Recording Events
+        els.micBtn.addEventListener('mousedown', startRecording);
+        els.micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+        els.micBtn.addEventListener('mouseup', stopRecording);
+        els.micBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
+        els.micBtn.addEventListener('mouseleave', () => { if(isRecording) stopRecording(); });
+
         els.ghostToggle.addEventListener('click', () => {
           ghostMode = !ghostMode;
           els.ghostToggle.classList.toggle('active', ghostMode);
@@ -819,18 +878,17 @@
           const chat = getActiveChat();
           if(!chat) return;
           if(confirm('NUKE CHAT? This will clear history for BOTH you and the peer. This cannot be undone.')) {
-            // Send clear signal
             sendSignal(chat, { type: 'clear_history' });
             chat.messages = [];
-            incomingFiles = {}; // Clear pending files
+            incomingFiles = {}; 
             renderMessages(chat);
-            saveStorage(); // Updates storage (empty messages)
+            saveStorage(); 
           }
         });
 
         // Logs
         els.logHeader.addEventListener('click', (e) => {
-          if(e.target !== els.viewRawDataBtn) {
+          if(e.target !== els.viewRawDataBtn && !e.target.classList.contains('log-tab')) {
             els.securityLog.classList.toggle('open');
           }
         });
@@ -838,6 +896,8 @@
           els.rawDataContent.textContent = JSON.stringify(myFingerprintRaw, null, 2);
           openModal(els.rawDataModal);
         });
+        els.tabSec.addEventListener('click', () => switchLogTab('sec'));
+        els.tabDebug.addEventListener('click', () => switchLogTab('debug'));
 
         // Virtual Keyboard
         els.vkToggleBtn.addEventListener('click', () => {
@@ -908,6 +968,38 @@
         });
       }
 
+      // --- LOGGING SYSTEM ---
+      function switchLogTab(tab) {
+        activeLogTab = tab;
+        els.tabSec.classList.toggle('active', tab === 'sec');
+        els.tabDebug.classList.toggle('active', tab === 'debug');
+        renderLogs();
+      }
+
+      let logs = { sec: [], debug: [] };
+
+      function logSecurity(msg, type = 'info') {
+        logs.sec.push({ msg, type, time: new Date().toLocaleTimeString() });
+        if(activeLogTab === 'sec') renderLogs();
+      }
+
+      function logDebug(msg, type = 'info') {
+        logs.debug.push({ msg, type, time: new Date().toLocaleTimeString() });
+        if(activeLogTab === 'debug') renderLogs();
+      }
+
+      function renderLogs() {
+        els.logContent.innerHTML = '';
+        const currentLogs = logs[activeLogTab];
+        currentLogs.forEach(l => {
+          const row = document.createElement('div');
+          row.className = `log-row ${l.type}`;
+          row.innerHTML = `<span style="color:#555; font-size:9px;">${l.time}</span> <span class="log-hash">${l.msg}</span>`;
+          els.logContent.appendChild(row);
+        });
+        els.logContent.scrollTop = els.logContent.scrollHeight;
+      }
+
       // --- FINGERPRINTING ---
       async function generateFingerprint() {
         const canvas = document.createElement('canvas');
@@ -917,7 +1009,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv5", 2, 15);
+        ctx.fillText("PepeChatv7", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -936,94 +1028,6 @@
         return buf2hex(hashBuf);
       }
 
-      function logSecurity(msg) {
-        const row = document.createElement('div');
-        row.className = 'log-row';
-        row.innerHTML = `<span class="log-hash">${msg}</span>`;
-        els.logContent.appendChild(row);
-        els.logContent.scrollTop = els.logContent.scrollHeight;
-      }
-
-      // --- VIRTUAL KEYBOARD ---
-      const charSets = {
-        abc: "qwertyuiopasdfghjklzxcvbnm".split(''),
-        '123': "1234567890-/:;()$&@".split(''),
-        sym: "[]{}#%^*+=_\\|~<>?!.,".split(''),
-        emo: [..."😀😂😍😎🤔😭😡👍👎🔥✨❤️💀👻👽🤖💩"]
-      };
-
-      function renderVk() {
-        els.vkKeys.innerHTML = '';
-        let keys = [...(charSets[vkSet] || [])];
-        if(vkScramble) {
-          for (let i = keys.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [keys[i], keys[j]] = [keys[j], keys[i]];
-          }
-        }
-        keys.forEach(char => {
-          const btn = document.createElement('div');
-          btn.className = 'vk-key';
-          btn.textContent = char;
-          btn.onclick = () => { insertAtCursor(char); if(vkScramble) renderVk(); };
-          els.vkKeys.appendChild(btn);
-        });
-        
-        // Space
-        const space = document.createElement('div');
-        space.className = 'vk-key space';
-        space.textContent = 'SPACE';
-        space.onclick = () => { insertAtCursor(' '); };
-        els.vkKeys.appendChild(space);
-        
-        // Backspace
-        const back = document.createElement('div');
-        back.className = 'vk-key wide';
-        back.innerHTML = '<i class="fa-solid fa-delete-left"></i>';
-        back.onclick = () => { 
-          const start = els.msgInput.selectionStart;
-          const end = els.msgInput.selectionEnd;
-          if(start === end && start > 0) {
-            els.msgInput.value = els.msgInput.value.slice(0, start - 1) + els.msgInput.value.slice(end);
-            els.msgInput.selectionStart = els.msgInput.selectionEnd = start - 1;
-          } else {
-            els.msgInput.value = els.msgInput.value.slice(0, start) + els.msgInput.value.slice(end);
-            els.msgInput.selectionStart = els.msgInput.selectionEnd = start;
-          }
-          if(vkScramble) renderVk(); 
-        };
-        els.vkKeys.appendChild(back);
-
-        // Arrows
-        const left = document.createElement('div');
-        left.className = 'vk-key arrow';
-        left.innerHTML = '<i class="fa-solid fa-arrow-left"></i>';
-        left.onclick = () => { 
-          const pos = Math.max(0, els.msgInput.selectionStart - 1);
-          els.msgInput.setSelectionRange(pos, pos);
-          els.msgInput.focus();
-        };
-        els.vkKeys.appendChild(left);
-
-        const right = document.createElement('div');
-        right.className = 'vk-key arrow';
-        right.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
-        right.onclick = () => { 
-          const pos = Math.min(els.msgInput.value.length, els.msgInput.selectionStart + 1);
-          els.msgInput.setSelectionRange(pos, pos);
-          els.msgInput.focus();
-        };
-        els.vkKeys.appendChild(right);
-      }
-
-      function insertAtCursor(text) {
-        const start = els.msgInput.selectionStart;
-        const end = els.msgInput.selectionEnd;
-        els.msgInput.value = els.msgInput.value.slice(0, start) + text + els.msgInput.value.slice(end);
-        els.msgInput.selectionStart = els.msgInput.selectionEnd = start + text.length;
-        els.msgInput.focus();
-      }
-
       // --- CORE LOGIC ---
 
       function initApp(userId, callback) {
@@ -1032,7 +1036,17 @@
         els.myIdDisplay.textContent = "ID: " + userId;
         els.myAvatar.textContent = userId.substring(0,2).toUpperCase();
         
-        peer = new Peer(myId);
+        logDebug(`Initializing PeerJS with ID: ${userId}`);
+        logDebug(`Configuring ICE Servers (Google/Twilio) for NAT traversal...`);
+
+        // Robust Configuration for 4G/Tor
+        peer = new Peer(myId, {
+          debug: 1,
+          config: {
+            iceServers: ICE_SERVERS,
+            sdpSemantics: 'unified-plan'
+          }
+        });
 
         peer.on('open', (id) => {
           myId = id;
@@ -1040,21 +1054,24 @@
           els.loginScreen.classList.add('hidden');
           setTimeout(() => els.loginScreen.style.display = 'none', 500);
           els.app.classList.add('visible');
+          logSecurity("Peer Network Connected.");
           if(callback) callback();
         });
 
         peer.on('error', (err) => {
+          logDebug(`Peer Error: ${err.type}`, 'error');
           if(err.type === 'unavailable-id') {
             alert('ID taken. Trying random.');
             initApp(generateRandomId(), callback);
           } else if (err.type === 'peer-unavailable') {
             alert('Peer not found. They might be offline or the ID is incorrect.');
-          } else {
-            console.error(err);
+          } else if (err.type === 'browser-incompatible') {
+            logSecurity("Browser incompatible. If on Tor, WebRTC might be blocked.", 'error');
           }
         });
 
         peer.on('connection', (conn) => {
+          logDebug(`Incoming connection from ${conn.peer}`);
           handleConnection(conn, true);
         });
       }
@@ -1074,8 +1091,24 @@
           return;
         }
 
-        const conn = peer.connect(remoteId);
-        conn.on('error', (err) => { console.error("Connection Error:", err); });
+        logDebug(`Initiating connection to ${remoteId}...`);
+        const conn = peer.connect(remoteId, {
+          reliable: true,
+          serialization: 'json'
+        });
+        
+        // Connection Timeout Logic
+        const timeout = setTimeout(() => {
+          if(!conn.open) {
+            logDebug(`Connection to ${remoteId} timed out (15s). NAT/Firewall issue likely.`, 'error');
+            conn.close();
+            updateChatStatus(chat);
+          }
+        }, 15000);
+
+        conn.on('open', () => clearTimeout(timeout));
+        conn.on('error', (err) => { console.error("Connection Error:", err); clearTimeout(timeout); });
+        
         handleConnection(conn, false, presetKey);
       }
 
@@ -1096,11 +1129,19 @@
         renderChatList();
         if(!activeChatId) setActiveChat(peerId);
 
+        // Verbose ICE Logging
+        conn.on('iceStateChanged', (state) => {
+          logDebug(`ICE State (${peerId}): ${state}`);
+          if(state === 'disconnected' || state === 'failed') {
+            logDebug(`ICE Failed. Likely NAT issue. Try using a VPN or different network.`, 'warn');
+          }
+        });
+
         conn.on('open', () => {
+          logDebug(`Connection established with ${peerId}`);
           chat.conn = conn;
           chat.lastSeen = Date.now();
           
-          // Auto-close QR if open
           if(els.qrModal.classList.contains('open')) closeModals();
 
           conn.send({ 
@@ -1132,8 +1173,15 @@
         });
 
         conn.on('data', (data) => handleData(conn, data));
-        conn.on('close', () => { updateChatStatus(chat); renderChatList(); });
-        conn.on('error', () => { updateChatStatus(chat); });
+        conn.on('close', () => { 
+          logDebug(`Connection closed: ${peerId}`);
+          updateChatStatus(chat); 
+          renderChatList(); 
+        });
+        conn.on('error', (err) => { 
+          logDebug(`Conn Error (${peerId}): ${err}`, 'error');
+          updateChatStatus(chat); 
+        });
       }
 
       function createChatObject(peerId, presetKey) {
@@ -1156,9 +1204,7 @@
         chats.forEach(chat => {
           if(chat.type === 'direct' && chat.conn && chat.conn.open) {
             chat.conn.send({ kind: 'ping' });
-            // If no pong for 15s, mark offline
-            if(Date.now() - chat.lastSeen > 15000) {
-              // Don't close, just update UI status
+            if(Date.now() - chat.lastSeen > 20000) {
               updateChatStatus(chat);
             }
           }
@@ -1293,7 +1339,7 @@
             if(settings.secureSession) {
               if(chat.fingerprint && chat.fingerprint !== data.fingerprint) {
                 addSystemMessage(chat, `⚠️ SECURITY ALERT: Fingerprint mismatch!`);
-                logSecurity(`ALERT: ${chat.name} fingerprint changed!`);
+                logSecurity(`ALERT: ${chat.name} fingerprint changed!`, 'error');
               } else {
                 chat.fingerprint = data.fingerprint;
                 logSecurity(`Verified ${chat.name}: ${data.fingerprint.substring(0,16)}...`);
@@ -1402,18 +1448,88 @@
         });
       }
 
+      // --- AUDIO RECORDING ---
+      async function startRecording() {
+        if(isRecording) return;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          
+          mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+          mediaRecorder.onstop = processAudio;
+          
+          mediaRecorder.start();
+          isRecording = true;
+          els.micBtn.classList.add('recording');
+          els.recordingOverlay.classList.add('visible');
+          
+          recStartTime = Date.now();
+          recTimerInterval = setInterval(() => {
+            const diff = Math.floor((Date.now() - recStartTime) / 1000);
+            const m = Math.floor(diff / 60);
+            const s = diff % 60;
+            els.recTimer.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+          }, 1000);
+          
+        } catch(err) {
+          alert("Microphone access denied or not available.");
+          console.error(err);
+        }
+      }
+
+      function stopRecording() {
+        if(!isRecording || !mediaRecorder) return;
+        mediaRecorder.stop();
+        isRecording = false;
+        els.micBtn.classList.remove('recording');
+        els.recordingOverlay.classList.remove('visible');
+        clearInterval(recTimerInterval);
+        els.recTimer.textContent = "0:00";
+        
+        // Stop all tracks
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+
+      function processAudio() {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        if(audioBlob.size < 1000) return; // Ignore tiny clips
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64 = e.target.result;
+          sendAudioMessage(base64);
+        };
+        reader.readAsDataURL(audioBlob);
+      }
+
+      function sendAudioMessage(base64) {
+        const chat = getActiveChat();
+        if(!chat) return;
+
+        const meta = { name: 'voice_msg.webm', size: 'Audio', type: 'audio/webm', hash: 'generated' };
+        const payload = { type: 'audio', content: base64, meta: meta, ghost: ghostMode };
+        const timestamp = new Date().toISOString();
+
+        const msgObj = { from: 'me', type: 'audio', content: base64, meta: meta, timestamp: timestamp, ghost: ghostMode, status: 'pending', progress: 0 };
+        chat.messages.push(msgObj);
+        appendMessageToUI(msgObj);
+
+        encryptPayload(chat.passphrase, payload).then(pkg => {
+          sendFileChunked(chat, pkg, timestamp, 'me', msgObj);
+        });
+      }
+
       // --- DRAWING LOGIC ---
       function initDrawing() {
         drawCtx = els.drawingCanvas.getContext('2d');
         
-        // Resize canvas
         const resize = () => {
           els.drawingCanvas.width = els.canvasContainer.offsetWidth;
           els.drawingCanvas.height = els.canvasContainer.offsetHeight;
         };
         window.addEventListener('resize', resize);
         
-        // Events
         const start = (e) => {
           isDrawing = true;
           const rect = els.drawingCanvas.getBoundingClientRect();
@@ -1426,7 +1542,6 @@
           const x = (e.clientX || e.touches[0].clientX) - rect.left;
           const y = (e.clientY || e.touches[0].clientY) - rect.top;
           
-          // Send cursor pos
           const chat = getActiveChat();
           if(chat) sendSignal(chat, { type: 'drawing_cursor', x: x/els.drawingCanvas.width, y: y/els.drawingCanvas.height });
 
@@ -1440,7 +1555,6 @@
           drawCtx.lineCap = 'round';
           drawCtx.stroke();
           
-          // Send stroke
           if(chat) {
             sendSignal(chat, { 
               type: 'drawing_stroke', 
@@ -1465,7 +1579,6 @@
         els.drawingCanvas.addEventListener('touchmove', move);
         els.drawingCanvas.addEventListener('touchend', end);
 
-        // Colors
         els.colorDots.forEach(dot => {
           dot.addEventListener('click', () => {
             els.colorDots.forEach(d => d.classList.remove('active'));
@@ -1474,7 +1587,6 @@
           });
         });
 
-        // Actions
         els.finishDrawingBtn.addEventListener('click', () => {
           const base64 = els.drawingCanvas.toDataURL('image/png');
           sendImageAsFile(base64, 'drawing.png');
@@ -1493,7 +1605,6 @@
         if(!chat) return;
         
         openModal(els.drawingModal);
-        // Reset canvas
         els.drawingCanvas.width = els.canvasContainer.offsetWidth;
         els.drawingCanvas.height = els.canvasContainer.offsetHeight;
         drawCtx.clearRect(0, 0, els.drawingCanvas.width, els.drawingCanvas.height);
@@ -1506,7 +1617,6 @@
           sendSignal(chat, { type: 'drawing_invite' });
           addSystemMessage(chat, "Started drawing session. Waiting for peer...");
         } else {
-          // If joining, pick a different color automatically
           drawColor = '#FF453A'; 
         }
       }
@@ -1551,8 +1661,6 @@
         appendMessageToUI(msgObj);
         
         encryptPayload(chat.passphrase, payload).then(pkg => {
-           // For drawings (small), we can send directly without chunking logic for simplicity, 
-           // or reuse the chunk logic. Reusing chunk logic is safer.
            sendFileChunked(chat, pkg, timestamp, 'me', msgObj);
         });
       }
@@ -1605,8 +1713,6 @@
       }
 
       function sendFileChunked(chat, pkg, timestamp, sender, msgObj) {
-        // pkg contains { iv, data } (hex strings)
-        // We serialize the whole package to string, then chunk it.
         const fullData = JSON.stringify(pkg);
         const totalSize = fullData.length;
         const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
@@ -1672,11 +1778,10 @@
             msgObj: null
           };
           
-          // Create placeholder message
           const msgObj = {
             from: 'them',
             senderName: data.senderName,
-            type: 'file_transfer', // Temporary type
+            type: 'file_transfer', 
             progress: 0,
             timestamp: data.timestamp,
             status: 'receiving'
@@ -1690,19 +1795,16 @@
         fileData.chunks[data.current] = data.data;
         fileData.receivedCount++;
         
-        // Update UI
         fileData.msgObj.progress = Math.floor((fileData.receivedCount / fileData.totalChunks) * 100);
         if(activeChatId === chat.id) updateProgressUI(fileData.msgObj);
 
         if(fileData.receivedCount === fileData.totalChunks) {
-          // Reassemble
           const fullString = fileData.chunks.join('');
           try {
             const pkg = JSON.parse(fullString);
             decryptMessage(chat.passphrase, pkg).then(payload => {
               if(!payload) return;
               
-              // Update the placeholder message to the real file message
               const finalMsg = fileData.msgObj;
               finalMsg.type = payload.type;
               finalMsg.content = payload.content;
@@ -1711,7 +1813,7 @@
               finalMsg.status = 'received';
               
               delete incomingFiles[data.fileId];
-              if(activeChatId === chat.id) renderMessages(chat); // Re-render to show file card
+              if(activeChatId === chat.id) renderMessages(chat); 
             });
           } catch(e) { console.error("Reassembly failed", e); }
         }
@@ -1763,8 +1865,7 @@
           const div = document.createElement('div');
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
           
-          // Heartbeat check for status
-          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 20000));
+          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 25000));
           const isConnecting = chat.type === 'direct' && !isOnline && chat.conn && !chat.conn.open;
 
           div.innerHTML = `
@@ -1805,7 +1906,6 @@
         renderMessages(chat);
         renderChatList();
         
-        // Close sidebar on mobile
         if(window.innerWidth <= 768) {
           els.sidebar.classList.remove('open');
           els.sidebarOverlay.classList.remove('visible');
@@ -1814,8 +1914,7 @@
 
       function updateChatStatus(chat) {
         if(activeChatId !== chat.id || chat.type === 'group') return;
-        // Heartbeat logic: Online if connection open AND last seen < 20s ago
-        const isOnline = chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 20000);
+        const isOnline = chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 25000);
         els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline";
         els.chatStatus.style.color = isOnline ? "var(--success)" : "var(--warning)";
       }
@@ -1829,7 +1928,6 @@
         const div = document.createElement('div');
         div.className = `msg ${msg.from === 'me' ? 'out' : 'in'} ${msg.ghost ? 'ghost-fade' : ''}`;
         
-        // Assign ID for progress updates
         if(!msg.id) msg.id = 'msg-' + Math.random().toString(36).substr(2,9);
         div.id = msg.id;
 
@@ -1837,6 +1935,13 @@
         
         if(msg.type === 'text') {
           contentHtml = sanitize(msg.content);
+        } else if (msg.type === 'audio') {
+           contentHtml = `
+             <div class="audio-player">
+               <i class="fa-solid fa-play" style="font-size:12px;"></i>
+               <audio controls src="${msg.content}"></audio>
+             </div>
+           `;
         } else if (msg.type === 'file') {
           const fileId = 'file-' + Math.random().toString(36).substr(2, 9);
           window[fileId] = { content: msg.content, meta: msg.meta };
@@ -1870,8 +1975,7 @@
           `;
         }
 
-        // Add progress bar for outgoing pending files
-        if(msg.from === 'me' && msg.status === 'pending' && msg.type === 'file') {
+        if(msg.from === 'me' && msg.status === 'pending' && (msg.type === 'file' || msg.type === 'audio')) {
            contentHtml += `<div class="progress-track"><div class="progress-fill" style="width: ${msg.progress || 0}%"></div></div>`;
         }
 
@@ -1884,7 +1988,6 @@
           else if(msg.status === 'failed') statusIcon = '<i class="fa-solid fa-circle-exclamation" style="color:red"></i>';
         }
 
-        // Copy Button Logic
         const copyBtn = msg.type === 'text' ? `<i class="fa-regular fa-copy copy-btn" onclick="copyToClipboard('${msg.id}')" title="Copy Text"></i>` : '';
 
         div.innerHTML = `
@@ -1912,9 +2015,7 @@
         const bar = el.querySelector('.progress-fill');
         if(bar) bar.style.width = msg.progress + '%';
         
-        // If complete and receiving, it will be re-rendered by handleFileChunk
         if(msg.status === 'sent' && msg.from === 'me') {
-           // Remove progress bar after a moment
            setTimeout(() => {
              const track = el.querySelector('.progress-track');
              if(track) track.style.display = 'none';
@@ -1927,12 +2028,9 @@
       window.copyToClipboard = (msgId) => {
         const el = document.getElementById(msgId);
         if(!el) return;
-        // Get text content, ignoring metadata/buttons
-        // We need to find the text content node. 
-        // Simple approach: clone, remove meta, get text.
         const clone = el.cloneNode(true);
         const meta = clone.querySelector('.msg-meta');
-        const sender = clone.querySelector('div[style*="color:var(--accent)"]'); // Sender info
+        const sender = clone.querySelector('div[style*="color:var(--accent)"]'); 
         if(meta) meta.remove();
         if(sender) sender.remove();
         
@@ -2018,10 +2116,8 @@
       function buf2hex(buffer) { return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join(''); }
       function hex2buf(hex) { return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16))); }
       
-      // EPHEMERAL STORAGE: Only save ID and Chat List (without messages)
       function saveStorage() {
         const chatsArr = Array.from(chats.entries()).map(([k, v]) => {
-          // Destructure to exclude messages and connection objects
           const { conn, connections, messages, pendingMessages, ...rest } = v; 
           return [k, rest];
         });
@@ -2045,7 +2141,7 @@
                 c.conn = null; 
                 c.connections = {}; 
                 c.unread = 0; 
-                c.messages = []; // Ensure empty on load
+                c.messages = []; 
                 c.pendingMessages = [];
                 c.lastSeen = 0;
               });
