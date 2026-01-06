@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v11.0 · Glare Fix & IndexedDB</title>
+  <title>PepeChat v12.0 · Fixed & Fast</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS (Latest Beta) -->
+  <!-- PeerJS -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -70,10 +70,11 @@
       width: 100%; padding: 14px; border-radius: 12px; border: none;
       background: var(--accent-grad); color: white; font-weight: 600; font-size: 16px; cursor: pointer;
     }
+    .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
 
     /* --- MAIN APP LAYOUT --- */
     #app {
-      position: relative; /* IMPORTANT: Stacking context root */
+      position: relative;
       width: 100%; height: 100%; max-width: 1600px; display: flex;
       background: var(--glass-panel); backdrop-filter: blur(30px);
       box-shadow: 0 0 50px rgba(0,0,0,0.8); opacity: 0; transform: scale(0.98);
@@ -82,7 +83,7 @@
     }
     #app.visible { opacity: 1; transform: scale(1); }
 
-    /* SIDEBAR OVERLAY (Moved inside #app) */
+    /* SIDEBAR OVERLAY */
     .sidebar-overlay {
       position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 55;
       opacity: 0; pointer-events: none; transition: opacity 0.3s;
@@ -374,11 +375,11 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v11.0</h1>
+      <h1>PepeChat v12.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
-        <button type="submit" class="btn-primary">Start Chatting</button>
+        <button type="submit" id="loginBtn" class="btn-primary">Start Chatting</button>
         <div style="margin-top: 15px; font-size: 12px; color: #666;">
           Tor & Mobile Optimized
         </div>
@@ -632,6 +633,7 @@
 
       // --- CONFIG & STATE ---
       const APP_URL = `${window.location.origin}${window.location.pathname}`;
+      const STORAGE_KEY = 'pepechat_v12_data';
       const CHUNK_SIZE = 16384; 
       
       // Default ICE Servers (STUN only)
@@ -704,39 +706,47 @@
 
       function initDB() {
         return new Promise((resolve, reject) => {
-          const request = indexedDB.open(DB_NAME, DB_VERSION);
-          request.onupgradeneeded = (e) => {
-            db = e.target.result;
-            if (!db.objectStoreNames.contains('messages')) {
-              db.createObjectStore('messages', { keyPath: 'id' });
-            }
-          };
-          request.onsuccess = (e) => {
-            db = e.target.result;
-            resolve(db);
-          };
-          request.onerror = (e) => reject(e);
+          try {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onupgradeneeded = (e) => {
+              db = e.target.result;
+              if (!db.objectStoreNames.contains('messages')) {
+                db.createObjectStore('messages', { keyPath: 'id' });
+              }
+            };
+            request.onsuccess = (e) => {
+              db = e.target.result;
+              resolve(db);
+            };
+            request.onerror = (e) => reject(e);
+          } catch(e) {
+            reject(e);
+          }
         });
       }
 
       function saveMessageToDB(msg) {
         if (!db) return;
-        const tx = db.transaction(['messages'], 'readwrite');
-        tx.objectStore('messages').put(msg);
+        try {
+          const tx = db.transaction(['messages'], 'readwrite');
+          tx.objectStore('messages').put(msg);
+        } catch(e) { console.error("DB Save Error", e); }
       }
 
       function loadMessagesFromDB(chatId) {
         return new Promise((resolve) => {
           if (!db) return resolve([]);
-          const tx = db.transaction(['messages'], 'readonly');
-          const store = tx.objectStore('messages');
-          const request = store.getAll();
-          request.onsuccess = () => {
-            // Filter in memory (simple for now)
-            const all = request.result;
-            const chatMsgs = all.filter(m => m.chatId === chatId).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
-            resolve(chatMsgs);
-          };
+          try {
+            const tx = db.transaction(['messages'], 'readonly');
+            const store = tx.objectStore('messages');
+            const request = store.getAll();
+            request.onsuccess = () => {
+              const all = request.result;
+              const chatMsgs = all.filter(m => m.chatId === chatId).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+              resolve(chatMsgs);
+            };
+            request.onerror = () => resolve([]);
+          } catch(e) { resolve([]); }
         });
       }
 
@@ -745,6 +755,7 @@
         loginScreen: document.getElementById('loginScreen'),
         loginForm: document.getElementById('loginForm'),
         customIdInput: document.getElementById('customIdInput'),
+        loginBtn: document.getElementById('loginBtn'),
         app: document.getElementById('app'),
         sidebar: document.getElementById('sidebar'),
         sidebarOverlay: document.getElementById('sidebarOverlay'),
@@ -849,16 +860,27 @@
       };
 
       // --- INITIALIZATION ---
-      document.addEventListener('DOMContentLoaded', async () => {
-        await initDB();
+      document.addEventListener('DOMContentLoaded', () => {
+        // 1. Setup UI Listeners IMMEDIATELY
+        setupEventListeners();
+        renderVk();
+
+        // 2. Start Async Background Tasks
+        initializeSystem();
+      });
+
+      async function initializeSystem() {
+        try {
+          await initDB();
+        } catch(e) {
+          console.warn("IndexedDB failed, falling back to memory mode.", e);
+        }
+
         myFingerprint = await generateFingerprint();
         logSecurity(`My Fingerprint Hash: ${myFingerprint.substring(0, 16)}...`);
         
         loadStorage();
         checkUrlParams();
-        setupEventListeners();
-        renderVk();
-        initDrawing();
         
         // Heartbeat Loop (Every 5 seconds)
         heartbeatInterval = setInterval(sendHeartbeat, 5000);
@@ -869,7 +891,7 @@
             reconnectAll();
           }
         });
-      });
+      }
 
       // --- GLARE CONTROL (CRITICAL FIX) ---
       function preferredDirectionForPeer(peerId) {
@@ -988,6 +1010,9 @@
         // Login
         els.loginForm.addEventListener('submit', (e) => {
           e.preventDefault();
+          els.loginBtn.textContent = "Starting...";
+          els.loginBtn.disabled = true;
+          
           let val = els.customIdInput.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
           if(!val) val = generateRandomId(); 
           initApp(val);
@@ -1221,7 +1246,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv11", 2, 15);
+        ctx.fillText("PepeChatv12", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
