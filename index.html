@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v9.0 · Production Ready</title>
+  <title>PepeChat v10.0 · Glare Control & Diagnostics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS (Latest Beta for best WebRTC support) -->
+  <!-- PeerJS (Latest Beta) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -85,7 +85,7 @@
     aside {
       width: 320px; border-right: 1px solid var(--glass-border);
       display: flex; flex-direction: column; background: rgba(0,0,0,0.3);
-      z-index: 60; /* Higher than overlay */
+      z-index: 60;
     }
     .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
     .user-profile { display: flex; align-items: center; gap: 10px; }
@@ -208,12 +208,12 @@
       border-top: 1px solid var(--glass-border);
       display: flex; gap: 6px; align-items: center; background: rgba(30,30,30,0.6);
       transition: padding-bottom 0.3s;
-      flex-wrap: nowrap; /* Prevent wrapping on small screens */
+      flex-wrap: nowrap;
     }
     .msg-input {
       flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border);
       border-radius: 20px; padding: 10px 12px; color: white; outline: none; font-size: 14px;
-      min-width: 50px; /* Ensure it doesn't collapse */
+      min-width: 50px;
     }
     .msg-input:focus { border-color: var(--accent); }
     .file-btn {
@@ -373,7 +373,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v9.0</h1>
+      <h1>PepeChat v10.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
@@ -627,20 +627,34 @@
       'use strict';
 
       // --- CONFIG & STATE ---
-      const APP_URL = window.location.href.split('?')[0];
-      const STORAGE_KEY = 'pepechat_v9_data';
+      const APP_URL = `${window.location.origin}${window.location.pathname}`;
+      const STORAGE_KEY = 'pepechat_v10_data';
       const CHUNK_SIZE = 16384; 
       
-      // Robust ICE Servers for 4G/Mobile/Tor
-      // Note: For production reliability on mobile, a TURN server is highly recommended.
-      const ICE_SERVERS = [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
-      ];
+      // Robust ICE Configuration
+      // Supports adding TURN servers for 4G/Mobile reliability
+      const ICE_CFG = {
+        forceRelay: false, 
+        iceCandidatePoolSize: 8,
+        servers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' },
+          // Add TURN servers here if available:
+          // { urls: 'turn:your-turn-server.com:3478', username: 'user', credential: 'password' }
+        ]
+      };
+
+      function getRtcConfig() {
+        return {
+          iceServers: ICE_CFG.servers,
+          iceTransportPolicy: ICE_CFG.forceRelay ? 'relay' : 'all',
+          iceCandidatePoolSize: ICE_CFG.iceCandidatePoolSize
+        };
+      }
 
       let peer = null;
       let myId = null;
@@ -657,8 +671,11 @@
         allowFiles: true
       };
 
+      // Connection Registry for Glare Handling
+      const connRegistry = new Map(); // peerId => { conn, dir: 'in'|'out', createdAt }
+
       // File Transfer State
-      let incomingFiles = {}; // Scoped by chat ID in implementation
+      let incomingFiles = {}; 
 
       // Virtual Keyboard State
       let vkActive = false;
@@ -815,6 +832,48 @@
         });
       });
 
+      // --- GLARE CONTROL ---
+      function preferredDirectionForPeer(peerId) {
+        if (!myId) return 'in';
+        return (String(myId) < String(peerId)) ? 'out' : 'in';
+      }
+
+      function adoptConnection(peerId, conn, dir) {
+        const existing = connRegistry.get(peerId);
+        conn.__dir = dir;
+        conn.__createdAt = Date.now();
+
+        if (!existing) {
+          connRegistry.set(peerId, { conn, dir, createdAt: conn.__createdAt });
+          return true;
+        }
+
+        // If existing is open, keep it and close the newcomer.
+        if (existing.conn && existing.conn.open) {
+          try { conn.close(); } catch {}
+          return false;
+        }
+
+        // If newcomer is open, replace existing.
+        if (conn.open) {
+          try { existing.conn.close(); } catch {}
+          connRegistry.set(peerId, { conn, dir, createdAt: conn.__createdAt });
+          return true;
+        }
+
+        // Neither open yet: choose preferred direction.
+        const pref = preferredDirectionForPeer(peerId);
+        if (dir === pref && existing.dir !== pref) {
+          try { existing.conn.close(); } catch {}
+          connRegistry.set(peerId, { conn, dir, createdAt: conn.__createdAt });
+          return true;
+        }
+
+        // Otherwise keep existing, close newcomer.
+        try { conn.close(); } catch {}
+        return false;
+      }
+
       function reconnectAll() {
         if(peer && peer.disconnected) {
           peer.reconnect();
@@ -825,39 +884,57 @@
           if(chat.type === 'direct' && (!chat.conn || !chat.conn.open)) {
              // Only reconnect if not already trying
              if (!chat.dialInProgress) {
-                 connectToPeer(chat.id, chat.passphrase);
+                 // Jitter to reduce glare storms
+                 const jitter = 200 + Math.floor(Math.random() * 800);
+                 setTimeout(() => connectToPeer(chat.id, chat.passphrase), jitter);
                  logDebug(`Attempting to rejoin ${chat.name}...`);
              }
           }
         });
       }
 
+      // --- URL ENCODING HELPERS ---
+      function b64urlEncodeUtf8(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        const b64 = btoa(bin);
+        return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      }
+      function b64urlDecodeUtf8(b64url) {
+        const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
+          .padEnd(Math.ceil(b64url.length / 4) * 4, '=');
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+      }
+
       function checkUrlParams() {
         const params = new URLSearchParams(window.location.search);
         const userParam = params.get('user');
         const connectTo = params.get('connect');
-        const keyBase64 = params.get('key');
+        const keyParam = params.get('key');
 
         if (userParam) {
           initApp(userParam, () => {
-            if (connectTo) handleAutoConnect(connectTo, keyBase64);
+            if (connectTo) handleAutoConnect(connectTo, keyParam);
           });
         } else if (connectTo) {
           initApp(generateRandomId(), () => {
-             handleAutoConnect(connectTo, keyBase64);
+             handleAutoConnect(connectTo, keyParam);
           });
         }
       }
 
-      function handleAutoConnect(connectTo, keyBase64) {
+      function handleAutoConnect(connectTo, keyParam) {
         setTimeout(() => {
           let decodedKey = 'changeme';
-          if (keyBase64) {
-            try { 
-                // Fix D: Decode properly
-                decodedKey = atob(decodeURIComponent(keyBase64)); 
-            } catch(e){
-                logDebug("Key decode failed: " + e.message, 'error');
+          if (keyParam) {
+            try {
+              decodedKey = b64urlDecodeUtf8(keyParam);
+            } catch (e) {
+              logDebug("Key decode failed: " + e.message, 'error');
             }
           }
           connectToPeer(connectTo, decodedKey);
@@ -890,11 +967,9 @@
         
         els.copyMyIdBtn.addEventListener('click', () => {
           if(myId) {
-            // Fix W: Use Clipboard API
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(myId);
             } else {
-                // Fallback
                 const ta = document.createElement('textarea');
                 ta.value = myId;
                 document.body.appendChild(ta);
@@ -1096,7 +1171,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv9", 2, 15);
+        ctx.fillText("PepeChatv10", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -1124,15 +1199,12 @@
         els.myAvatar.textContent = userId.substring(0,2).toUpperCase();
         
         logDebug(`Initializing PeerJS with ID: ${userId}`);
-        logDebug(`Configuring ICE Servers (Google/Twilio) for NAT traversal...`);
+        logDebug(`Configuring ICE (STUN/TURN) for NAT traversal...`);
 
         // Robust Configuration for 4G/Tor
         peer = new Peer(myId, {
           debug: 2, 
-          config: {
-            iceServers: ICE_SERVERS,
-            sdpSemantics: 'unified-plan'
-          }
+          config: getRtcConfig()
         });
 
         peer.on('open', (id) => {
@@ -1149,7 +1221,6 @@
           logDebug(`Peer Error: ${err.type} - ${err.message}`, 'error');
           if(err.type === 'unavailable-id') {
             alert('ID taken. Trying random.');
-            // Fix L: Destroy old peer before retrying
             if(peer) peer.destroy();
             initApp(generateRandomId(), callback);
           } else if (err.type === 'peer-unavailable') {
@@ -1175,7 +1246,6 @@
           renderChatList();
         }
         
-        // Fix K: Dial Lock / Glare prevention
         if(chat.dialInProgress) {
             logDebug(`Dial already in progress for ${remoteId}`);
             return;
@@ -1191,10 +1261,18 @@
         
         const conn = peer.connect(remoteId, {
           reliable: true,
-          serialization: 'json'
+          serialization: 'json',
+          metadata: { from: myId, ts: Date.now() }
         });
         
-        // Fix G: Increased timeout for mobile/Tor
+        // Enforce single-connection policy
+        if (!adoptConnection(remoteId, conn, 'out')) {
+          chat.dialInProgress = false;
+          updateChatStatus(chat);
+          return;
+        }
+        
+        // Connection Timeout Logic
         const timeout = setTimeout(() => {
           if(!conn.open) {
             logDebug(`Connection to ${remoteId} timed out (45s). NAT/Firewall issue likely.`, 'error');
@@ -1225,46 +1303,62 @@
           chat = createChatObject(peerId, presetKey);
           chats.set(peerId, chat);
         } else {
-          if (!chat.conn || !chat.conn.open) {
+          if (presetKey) chat.passphrase = presetKey;
+        }
+
+        // Register as incoming and enforce single-conn policy
+        const dir = inbound ? 'in' : 'out';
+        if (!adoptConnection(peerId, conn, dir)) {
+          logDebug(`Dropped ${dir} connection from/to ${peerId} (duplicate/glare policy)`, 'warn');
+          return;
+        }
+
+        if (!chat.conn || !chat.conn.open) {
             chat.conn = conn;
-          } else if (inbound) {
-             logDebug(`Duplicate connection attempt from ${peerId}`);
-          }
-          if(presetKey) chat.passphrase = presetKey;
         }
 
         renderChatList();
         if(!activeChatId) setActiveChat(peerId);
 
-        // Fix A & C: Correct ICE State Monitoring
-        // We do NOT overwrite onicecandidate. We use addEventListener.
-        // We check if peerConnection exists (it might not immediately).
+        // --- HARD DIAGNOSTICS ---
         const monitorICE = () => {
-            const pc = conn.peerConnection;
-            if (pc) {
-                // Fix H: Log candidates
-                pc.addEventListener('icecandidate', (event) => {
-                    if (event.candidate) {
-                        logDebug(`ICE Candidate (${peerId}): ${event.candidate.candidate}`);
-                    }
-                });
-                
-                // Fix J: Detailed State Monitoring
-                pc.addEventListener('iceconnectionstatechange', () => {
-                    logDebug(`ICE State (${peerId}): ${pc.iceConnectionState}`);
-                    chat.iceState = pc.iceConnectionState;
-                    updateChatStatus(chat);
-                });
-                
-                pc.addEventListener('connectionstatechange', () => {
-                    logDebug(`PC State (${peerId}): ${pc.connectionState}`);
-                });
-            } else {
-                // Retry if PC not ready yet
-                setTimeout(monitorICE, 100);
+          const pc = conn.peerConnection || conn._pc || null;
+          if (!pc) return setTimeout(monitorICE, 100);
+
+          if (pc.__pepeBound) return;
+          pc.__pepeBound = true;
+
+          pc.addEventListener('icecandidate', (event) => {
+            if (event.candidate) logDebug(`ICE Candidate (${peerId}): ${event.candidate.candidate}`);
+          });
+          pc.addEventListener('icecandidateerror', (e) => {
+            logDebug(`ICE Candidate Error (${peerId}): ${e.errorCode} ${e.errorText}`, 'error');
+          });
+          pc.addEventListener('iceconnectionstatechange', () => {
+            logDebug(`ICE State (${peerId}): ${pc.iceConnectionState}`);
+            chat.iceState = pc.iceConnectionState;
+            updateChatStatus(chat);
+            if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+              dumpIceStats(pc, peerId).catch(() => {});
             }
+          });
+          pc.addEventListener('connectionstatechange', () => {
+            logDebug(`PC State (${peerId}): ${pc.connectionState}`);
+          });
         };
         monitorICE();
+
+        async function dumpIceStats(pc, peerId) {
+          if (!pc || typeof pc.getStats !== 'function') return;
+          const stats = await pc.getStats();
+          let hasRelay = false;
+          stats.forEach(r => {
+            if (r.type === 'local-candidate' && r.candidateType === 'relay') hasRelay = true;
+          });
+          if (!hasRelay) {
+            logDebug(`TURN WARNING (${peerId}): No relay candidates. Mobile/CGNAT likely to fail without TURN.`, 'warn');
+          }
+        }
 
         conn.on('open', () => {
           logDebug(`DataChannel established with ${peerId}`);
@@ -1272,7 +1366,6 @@
           chat.lastSeen = Date.now();
           chat.dialInProgress = false;
           
-          // Fix D: Auto-close QR
           if(els.qrModal.classList.contains('open')) closeModals();
 
           conn.send({ 
@@ -1284,7 +1377,6 @@
           updateChatStatus(chat);
           renderChatList();
           
-          // Fix I: Update actual message objects in UI
           if(chat.pendingMessages.length > 0) {
             addSystemMessage(chat, "Connection re-established. Sending queued messages...");
             chat.pendingMessages.forEach(item => {
@@ -1297,12 +1389,10 @@
                   timestamp: item.timestamp
                 });
               });
-              // Find the message in chat.messages and update status
               const uiMsg = chat.messages.find(m => m.id === item.msgId);
               if(uiMsg) {
                   uiMsg.status = 'sent';
                   if(activeChatId === chat.id) {
-                      // Re-render specific message status if possible, or full list
                       const el = document.getElementById(uiMsg.id);
                       if(el) {
                           const statusEl = el.querySelector('.msg-status');
@@ -1319,13 +1409,30 @@
         conn.on('close', () => { 
           logDebug(`Connection closed: ${peerId}`);
           chat.dialInProgress = false;
+          // Cleanup registry if this was the active connection
+          const reg = connRegistry.get(peerId);
+          if (reg && reg.conn === conn) connRegistry.delete(peerId);
+          
           updateChatStatus(chat); 
           renderChatList(); 
         });
         conn.on('error', (err) => { 
-          logDebug(`Conn Error (${peerId}): ${err}`, 'error');
+          const msg = (err && err.message) ? err.message : String(err);
+          logDebug(`Conn Error (${peerId}): ${msg}`, 'error');
           chat.dialInProgress = false;
           updateChatStatus(chat); 
+
+          // Aggressive cleanup on negotiation failures + schedule ONE backoff retry
+          if (msg.toLowerCase().includes('negotiation')) {
+            try { conn.close(); } catch {}
+            const backoff = 800 + Math.floor(Math.random() * 1200);
+            setTimeout(() => {
+              if (chat && chat.type === 'direct' && (!chat.conn || !chat.conn.open) && !chat.dialInProgress) {
+                logDebug(`Retrying after negotiation failure (${peerId})...`);
+                connectToPeer(peerId, chat.passphrase);
+              }
+            }, backoff);
+          }
         });
       }
 
@@ -1351,7 +1458,6 @@
         chats.forEach(chat => {
           if(chat.type === 'direct' && chat.conn && chat.conn.open) {
             chat.conn.send({ kind: 'ping' });
-            // If no pong for 20s, mark offline
             if(Date.now() - chat.lastSeen > 20000) {
               updateChatStatus(chat);
             }
@@ -1382,7 +1488,7 @@
         if(!chat || chat.type !== 'group') return;
         if(chat.participants.includes(peerId)) return;
         
-        const conn = peer.connect(peerId);
+        const conn = peer.connect(peerId, { serialization: 'json', reliable: true });
         chat.participants.push(peerId);
         chat.connections[peerId] = conn;
         
@@ -1429,7 +1535,6 @@
 
         if(!chat) return;
 
-        // Fix S: Update lastSeen on any data
         chat.lastSeen = Date.now();
 
         // Heartbeat
@@ -1584,11 +1689,9 @@
             if(chat.conn && chat.conn.open) {
               chat.conn.send(msgData);
               msgObj.status = 'sent';
-              // Update UI immediately
               const el = document.getElementById(msgId);
               if(el) el.querySelector('.msg-status').innerHTML = '<i class="fa-solid fa-check"></i>';
             } else {
-              // Fix I: Store msgId to update later
               chat.pendingMessages.push({ payload: payload, timestamp: timestamp, msgId: msgId });
             }
           } else {
@@ -1598,7 +1701,6 @@
             });
             msgObj.status = 'sent';
           }
-          // No need to re-render all messages, we appended it
         });
       }
 
@@ -1651,13 +1753,12 @@
         clearInterval(recTimerInterval);
         els.recTimer.textContent = "0:00";
         
-        // Stop all tracks
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
       }
 
       function processAudio() {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        if(audioBlob.size < 1000) return; // Ignore tiny clips
+        if(audioBlob.size < 1000) return; 
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -1690,7 +1791,7 @@
         els.morseOverlay.classList.add('visible');
         morseActive = true;
         morseSequence = [];
-        getAudioContext(); // Init audio context
+        getAudioContext(); 
       }
 
       function closeMorseMode() {
@@ -1703,7 +1804,6 @@
         if(!morseActive) return;
         els.morseTapBtn.classList.add('active');
         
-        // Play Tone
         const ctx = getAudioContext();
         morseOscillator = ctx.createOscillator();
         morseGain = ctx.createGain();
@@ -1721,23 +1821,20 @@
         if(!morseActive || !morseOscillator) return;
         els.morseTapBtn.classList.remove('active');
         
-        // Stop Tone
         morseOscillator.stop();
         morseOscillator = null;
         
         const duration = Date.now() - morseStartTime;
-        if(duration > 10) { // Filter accidental clicks
+        if(duration > 10) { 
           morseSequence.push(duration);
         }
 
-        // Start Silence Timer
         morseTimeout = setTimeout(sendMorseSequence, 3000);
       }
 
       function sendMorseSequence() {
         if(morseSequence.length < 1) return;
         
-        // Only send if meaningful (e.g. more than 1 tap or a long tap)
         if(morseSequence.length === 1 && morseSequence[0] < 50) {
             morseSequence = [];
             els.morseStatus.textContent = "Ignored (Too short)";
@@ -1789,7 +1886,6 @@
           osc.start(time);
           osc.stop(time + (dur / 1000));
           
-          // Add gap between beeps
           time += (dur / 1000) + 0.1; 
         });
       }
@@ -2005,9 +2101,9 @@
             return;
           }
 
-          // Fix Q: Backpressure control
-          if (chat.conn && chat.conn.dataChannel && chat.conn.dataChannel.bufferedAmount > 1024 * 1024) {
-              // Wait if buffer > 1MB
+          // Backpressure control
+          const dc = (chat.conn && (chat.conn._dc || chat.conn.dataChannel)) ? (chat.conn._dc || chat.conn.dataChannel) : null;
+          if (dc && typeof dc.bufferedAmount === 'number' && dc.bufferedAmount > 1024 * 1024) {
               setTimeout(sendNextChunk, 50);
               return;
           }
@@ -2039,7 +2135,6 @@
           msgObj.progress = Math.floor((currentChunk / totalChunks) * 100);
           updateProgressUI(msgObj);
 
-          // Small delay to prevent flooding
           setTimeout(sendNextChunk, 5); 
         }
 
@@ -2052,7 +2147,6 @@
           return;
         }
 
-        // Fix P: Scope incoming files by chat ID
         if (!incomingFiles[chat.id]) incomingFiles[chat.id] = {};
 
         if(!incomingFiles[chat.id][data.fileId]) {
@@ -2140,7 +2234,7 @@
         const enc = new TextEncoder();
         const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), { name: "PBKDF2" }, false, ["deriveKey"]);
         return crypto.subtle.deriveKey(
-          { name: "PBKDF2", salt: enc.encode("pepechat_salt"), iterations: 100000, hash: "SHA-256" }, // Fix N: Increased iterations
+          { name: "PBKDF2", salt: enc.encode("pepechat_salt"), iterations: 100000, hash: "SHA-256" }, 
           keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
         );
       }
@@ -2152,7 +2246,6 @@
           const div = document.createElement('div');
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
           
-          // Fix J: Better status logic
           let statusClass = '';
           let statusText = 'Offline';
           
@@ -2229,7 +2322,7 @@
             text = "Connecting (ICE)...";
             color = "var(--warning)";
         } else if (chat.iceState === 'failed') {
-            text = "Connection Failed (NAT)";
+            text = "Connection Failed (NAT). TURN likely required.";
             color = "var(--danger)";
         }
 
@@ -2244,7 +2337,6 @@
 
       function appendMessageToUI(msg) {
         const div = document.createElement('div');
-        // Fix T: System messages class
         if (msg.from === 'system') {
             div.className = 'msg system';
             div.textContent = msg.content;
@@ -2269,7 +2361,6 @@
                <canvas class="waveform-canvas"></canvas>
              </div>
            `;
-           // Draw waveform after render
            setTimeout(() => drawWaveform(msg.content, audioId), 100);
         } else if (msg.type === 'morse') {
            const seqStr = JSON.stringify(msg.content);
@@ -2479,9 +2570,8 @@
         if(!myId) return;
         const chat = getActiveChat();
         const key = chat ? chat.passphrase : 'changeme';
-        // Fix D: URL Encode the key
-        const encodedKey = encodeURIComponent(btoa(key));
-        const url = `${window.location.origin}${window.location.pathname}?connect=${myId}&key=${encodedKey}`;
+        const encodedKey = b64urlEncodeUtf8(key);
+        const url = `${APP_URL}?connect=${encodeURIComponent(myId)}&key=${encodedKey}`;
         
         openModal(els.qrModal);
         setTimeout(() => {
