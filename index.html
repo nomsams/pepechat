@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v7.0 · Audio & Robust P2P</title>
+  <title>PepeChat v8.0 · Morse & Robust ICE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- PeerJS (Using latest beta for better browser compatibility) -->
+  <!-- PeerJS -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <!-- Icons -->
@@ -29,7 +29,8 @@
       --danger: #FF453A;
       --success: #30D158;
       --warning: #FFD60A;
-      --radius-lg: 18px;
+      --morse-bg: #1a1a1a;
+      --morse-active: #FFD60A;
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --safe-bottom: env(safe-area-inset-bottom, 20px);
     }
@@ -171,15 +172,13 @@
     .file-btn-small:hover { background: rgba(255,255,255,0.2); }
     .file-info-icon { color: var(--accent); cursor: pointer; margin-left: auto; padding: 0 5px; }
     
-    /* Audio Player */
-    .audio-player {
-      display: flex; align-items: center; gap: 10px; min-width: 200px;
+    /* Audio Visualizer */
+    .audio-visualizer {
+      display: flex; align-items: center; gap: 10px; min-width: 200px; height: 40px;
+      background: rgba(0,0,0,0.2); border-radius: 20px; padding: 0 10px;
     }
-    audio {
-      height: 30px; width: 100%; filter: invert(1) hue-rotate(180deg);
-      border-radius: 20px;
-    }
-    .msg.out audio { filter: invert(0); }
+    .play-icon { cursor: pointer; font-size: 14px; width: 20px; text-align: center; }
+    .waveform-canvas { flex: 1; height: 100%; }
 
     /* Progress Bar */
     .progress-track {
@@ -201,7 +200,7 @@
     .ghost-fade { animation: fadeOut 30s forwards; }
     @keyframes fadeOut { 0% { opacity: 1; } 90% { opacity: 0.1; filter: blur(2px); } 100% { opacity: 0; display: none; } }
 
-    /* INPUT AREA - Mobile Optimized */
+    /* INPUT AREA */
     .input-area {
       padding: 15px; 
       padding-bottom: calc(15px + var(--safe-bottom));
@@ -212,7 +211,7 @@
     .msg-input {
       flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border);
       border-radius: 20px; padding: 10px 15px; color: white; outline: none; font-size: 14px;
-      min-width: 0; /* Flexbox fix */
+      min-width: 0;
     }
     .msg-input:focus { border-color: var(--accent); }
     .file-btn {
@@ -226,11 +225,11 @@
 
     /* SECURITY LOG */
     #securityLog {
-      height: 30px; overflow: hidden; background: #000; border-top: 1px solid var(--glass-border);
+      height: 0; overflow: hidden; background: #000; border-top: 1px solid var(--glass-border);
       font-family: monospace; font-size: 10px; color: var(--success);
       transition: height 0.3s; display: flex; flex-direction: column;
     }
-    #securityLog.open { height: 180px; }
+    #securityLog.open { height: 200px; }
     .log-header {
       padding: 8px 15px; background: #111; cursor: pointer; display: flex; justify-content: space-between;
     }
@@ -317,6 +316,30 @@
     #recordingOverlay.visible { display: flex; animation: bounceIn 0.3s; }
     @keyframes bounceIn { 0% { transform: translate(-50%, 20px); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
 
+    /* MORSE MODE */
+    .morse-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 300;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .morse-overlay.visible { opacity: 1; pointer-events: auto; }
+    .morse-btn-main {
+      width: 200px; height: 200px; border-radius: 50%;
+      background: #333; border: 5px solid #555;
+      color: #888; font-size: 24px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; user-select: none; touch-action: manipulation;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      transition: all 0.1s;
+    }
+    .morse-btn-main:active, .morse-btn-main.active {
+      background: var(--morse-active); color: black;
+      transform: scale(0.95); box-shadow: 0 0 50px var(--morse-active);
+      border-color: white;
+    }
+    .morse-status { margin-top: 30px; font-family: monospace; color: var(--accent); height: 20px; }
+    .morse-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+
     @media (max-width: 768px) {
       aside { position: absolute; height: 100%; transform: translateX(-100%); transition: transform 0.3s; background: #111; width: 85%; }
       aside.open { transform: translateX(0); }
@@ -346,7 +369,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v7.0</h1>
+      <h1>PepeChat v8.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
@@ -360,6 +383,15 @@
 
   <!-- SIDEBAR OVERLAY -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- MORSE OVERLAY -->
+  <div class="morse-overlay" id="morseOverlay">
+    <button class="morse-close" id="closeMorseBtn"><i class="fa-solid fa-xmark"></i></button>
+    <h2 style="margin-bottom: 40px;">Morse Telegraph</h2>
+    <div class="morse-btn-main" id="morseTapBtn">TAP</div>
+    <div class="morse-status" id="morseStatus">Ready...</div>
+    <p style="margin-top: 20px; font-size: 12px; color: #666;">Hold to beep. Auto-sends after 3s silence.</p>
+  </div>
 
   <!-- MAIN APP -->
   <div id="app">
@@ -395,6 +427,7 @@
         <div class="header-controls">
           <button class="icon-btn" id="ghostToggle" title="Ghost Mode"><i class="fa-solid fa-ghost"></i></button>
           <button class="icon-btn" id="keySettingsBtn" title="Encryption"><i class="fa-solid fa-key"></i></button>
+          <button class="icon-btn" id="debugToggleBtn" title="Show Logs"><i class="fa-solid fa-bug"></i></button>
           <button class="icon-btn danger" id="deleteChatBtn" title="Nuke Chat (Remote Wipe)"><i class="fa-solid fa-radiation"></i></button>
         </div>
       </div>
@@ -410,6 +443,7 @@
       <form class="input-area" id="msgForm">
         <button type="button" class="file-btn" id="uploadBtn"><i class="fa-solid fa-paperclip"></i></button>
         <button type="button" class="file-btn" id="drawBtn" title="Collaborative Drawing"><i class="fa-solid fa-paintbrush"></i></button>
+        <button type="button" class="file-btn" id="morseBtn" title="Morse Code Mode"><i class="fa-solid fa-teletype"></i></button>
         <button type="button" class="file-btn" id="micBtn" title="Hold to Record"><i class="fa-solid fa-microphone"></i></button>
         <input type="file" id="fileInput" class="hidden-file">
         <input type="text" class="msg-input" id="msgInput" placeholder="Type message..." autocomplete="off">
@@ -590,8 +624,8 @@
 
       // --- CONFIG & STATE ---
       const APP_URL = window.location.href.split('?')[0];
-      const STORAGE_KEY = 'pepechat_v7_data';
-      const CHUNK_SIZE = 16384; // 16KB chunk size for reliable P2P transfer
+      const STORAGE_KEY = 'pepechat_v8_data';
+      const CHUNK_SIZE = 16384; 
       
       // Robust ICE Servers for 4G/Mobile/Tor
       const ICE_SERVERS = [
@@ -611,7 +645,7 @@
       let activeChatId = null;
       let ghostMode = false;
       let heartbeatInterval = null;
-      let activeLogTab = 'sec'; // 'sec' or 'debug'
+      let activeLogTab = 'debug'; // Default to debug for now
       
       let settings = {
         secureSession: false,
@@ -640,6 +674,15 @@
       let isRecording = false;
       let recStartTime = 0;
       let recTimerInterval = null;
+      let audioContext = null;
+
+      // Morse Code State
+      let morseActive = false;
+      let morseOscillator = null;
+      let morseGain = null;
+      let morseStartTime = 0;
+      let morseSequence = []; // Array of durations
+      let morseTimeout = null;
 
       // --- DOM ELEMENTS ---
       const els = {
@@ -671,6 +714,7 @@
         uploadBtn: document.getElementById('uploadBtn'),
         drawBtn: document.getElementById('drawBtn'),
         micBtn: document.getElementById('micBtn'),
+        morseBtn: document.getElementById('morseBtn'),
         recordingOverlay: document.getElementById('recordingOverlay'),
         recTimer: document.getElementById('recTimer'),
         vkToggleBtn: document.getElementById('vkToggleBtn'),
@@ -678,6 +722,7 @@
         ghostToggle: document.getElementById('ghostToggle'),
         keySettingsBtn: document.getElementById('keySettingsBtn'),
         deleteChatBtn: document.getElementById('deleteChatBtn'),
+        debugToggleBtn: document.getElementById('debugToggleBtn'),
 
         // Logs
         securityLog: document.getElementById('securityLog'),
@@ -734,7 +779,13 @@
         canvasContainer: document.getElementById('canvasContainer'),
         finishDrawingBtn: document.getElementById('finishDrawingBtn'),
         cancelDrawingBtn: document.getElementById('cancelDrawingBtn'),
-        colorDots: document.querySelectorAll('.color-dot')
+        colorDots: document.querySelectorAll('.color-dot'),
+
+        // Morse
+        morseOverlay: document.getElementById('morseOverlay'),
+        closeMorseBtn: document.getElementById('closeMorseBtn'),
+        morseTapBtn: document.getElementById('morseTapBtn'),
+        morseStatus: document.getElementById('morseStatus')
       };
 
       // --- INITIALIZATION ---
@@ -861,6 +912,15 @@
         els.micBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
         els.micBtn.addEventListener('mouseleave', () => { if(isRecording) stopRecording(); });
 
+        // Morse Events
+        els.morseBtn.addEventListener('click', openMorseMode);
+        els.closeMorseBtn.addEventListener('click', closeMorseMode);
+        els.morseTapBtn.addEventListener('mousedown', startMorseTap);
+        els.morseTapBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startMorseTap(); });
+        els.morseTapBtn.addEventListener('mouseup', endMorseTap);
+        els.morseTapBtn.addEventListener('touchend', (e) => { e.preventDefault(); endMorseTap(); });
+        els.morseTapBtn.addEventListener('mouseleave', endMorseTap);
+
         els.ghostToggle.addEventListener('click', () => {
           ghostMode = !ghostMode;
           els.ghostToggle.classList.toggle('active', ghostMode);
@@ -891,6 +951,9 @@
           if(e.target !== els.viewRawDataBtn && !e.target.classList.contains('log-tab')) {
             els.securityLog.classList.toggle('open');
           }
+        });
+        els.debugToggleBtn.addEventListener('click', () => {
+          els.securityLog.classList.toggle('open');
         });
         els.viewRawDataBtn.addEventListener('click', () => {
           els.rawDataContent.textContent = JSON.stringify(myFingerprintRaw, null, 2);
@@ -1009,7 +1072,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv7", 2, 15);
+        ctx.fillText("PepeChatv8", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -1041,7 +1104,7 @@
 
         // Robust Configuration for 4G/Tor
         peer = new Peer(myId, {
-          debug: 1,
+          debug: 2, // Higher debug level for internal PeerJS logs
           config: {
             iceServers: ICE_SERVERS,
             sdpSemantics: 'unified-plan'
@@ -1059,7 +1122,7 @@
         });
 
         peer.on('error', (err) => {
-          logDebug(`Peer Error: ${err.type}`, 'error');
+          logDebug(`Peer Error: ${err.type} - ${err.message}`, 'error');
           if(err.type === 'unavailable-id') {
             alert('ID taken. Trying random.');
             initApp(generateRandomId(), callback);
@@ -1086,6 +1149,7 @@
           renderChatList();
         }
         
+        // Prevent race condition: if we are already connected or connecting
         if(chat.conn && chat.conn.open) {
           setActiveChat(remoteId);
           return;
@@ -1120,8 +1184,13 @@
           chat = createChatObject(peerId, presetKey);
           chats.set(peerId, chat);
         } else {
-          if (inbound || !chat.conn || !chat.conn.open) {
+          // If we have an existing open connection, don't overwrite it with a pending one unless necessary
+          if (!chat.conn || !chat.conn.open) {
             chat.conn = conn;
+          } else if (inbound) {
+             // If inbound and we are already open, this might be a race. 
+             // Usually PeerJS handles this, but we log it.
+             logDebug(`Duplicate connection attempt from ${peerId}`);
           }
           if(presetKey) chat.passphrase = presetKey;
         }
@@ -1137,11 +1206,21 @@
           }
         });
 
+        // Log Candidates to see if we are getting Public IPs
+        if(conn.peerConnection) {
+            conn.peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    logDebug(`ICE Candidate: ${event.candidate.candidate}`);
+                }
+            };
+        }
+
         conn.on('open', () => {
           logDebug(`Connection established with ${peerId}`);
           chat.conn = conn;
           chat.lastSeen = Date.now();
           
+          // Auto-close QR if open
           if(els.qrModal.classList.contains('open')) closeModals();
 
           conn.send({ 
@@ -1204,6 +1283,7 @@
         chats.forEach(chat => {
           if(chat.type === 'direct' && chat.conn && chat.conn.open) {
             chat.conn.send({ kind: 'ping' });
+            // If no pong for 20s, mark offline
             if(Date.now() - chat.lastSeen > 20000) {
               updateChatStatus(chat);
             }
@@ -1448,7 +1528,17 @@
         });
       }
 
-      // --- AUDIO RECORDING ---
+      // --- AUDIO RECORDING & VISUALIZER ---
+      function getAudioContext() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        return audioContext;
+      }
+
       async function startRecording() {
         if(isRecording) return;
         try {
@@ -1517,6 +1607,113 @@
 
         encryptPayload(chat.passphrase, payload).then(pkg => {
           sendFileChunked(chat, pkg, timestamp, 'me', msgObj);
+        });
+      }
+
+      // --- MORSE CODE MODE ---
+      function openMorseMode() {
+        els.morseOverlay.classList.add('visible');
+        morseActive = true;
+        morseSequence = [];
+        getAudioContext(); // Init audio context
+      }
+
+      function closeMorseMode() {
+        els.morseOverlay.classList.remove('visible');
+        morseActive = false;
+        clearTimeout(morseTimeout);
+      }
+
+      function startMorseTap() {
+        if(!morseActive) return;
+        els.morseTapBtn.classList.add('active');
+        
+        // Play Tone
+        const ctx = getAudioContext();
+        morseOscillator = ctx.createOscillator();
+        morseGain = ctx.createGain();
+        morseOscillator.connect(morseGain);
+        morseGain.connect(ctx.destination);
+        morseOscillator.frequency.value = 600;
+        morseOscillator.start();
+        
+        morseStartTime = Date.now();
+        clearTimeout(morseTimeout);
+        els.morseStatus.textContent = "Recording...";
+      }
+
+      function endMorseTap() {
+        if(!morseActive || !morseOscillator) return;
+        els.morseTapBtn.classList.remove('active');
+        
+        // Stop Tone
+        morseOscillator.stop();
+        morseOscillator = null;
+        
+        const duration = Date.now() - morseStartTime;
+        if(duration > 10) { // Filter accidental clicks
+          morseSequence.push(duration);
+        }
+
+        // Start Silence Timer
+        morseTimeout = setTimeout(sendMorseSequence, 3000);
+      }
+
+      function sendMorseSequence() {
+        if(morseSequence.length < 1) return;
+        
+        // Only send if meaningful (e.g. more than 1 tap or a long tap)
+        if(morseSequence.length === 1 && morseSequence[0] < 50) {
+            morseSequence = [];
+            els.morseStatus.textContent = "Ignored (Too short)";
+            return;
+        }
+
+        const chat = getActiveChat();
+        if(chat) {
+          const payload = { type: 'morse', content: JSON.stringify(morseSequence), ghost: ghostMode };
+          const timestamp = new Date().toISOString();
+          
+          const msgObj = { from: 'me', type: 'morse', content: morseSequence, timestamp: timestamp, ghost: ghostMode, status: 'pending' };
+          chat.messages.push(msgObj);
+          appendMessageToUI(msgObj);
+          
+          encryptPayload(chat.passphrase, payload).then(pkg => {
+             const msgData = {
+                kind: 'message',
+                iv: pkg.iv,
+                data: pkg.data,
+                senderName: myId,
+                timestamp: timestamp
+             };
+             if(chat.conn && chat.conn.open) {
+                 chat.conn.send(msgData);
+                 msgObj.status = 'sent';
+                 if(activeChatId === chat.id) renderMessages(chat);
+             }
+          });
+          
+          els.morseStatus.textContent = "Sent!";
+        }
+        morseSequence = [];
+      }
+
+      function playMorseSequence(sequence) {
+        const ctx = getAudioContext();
+        let time = ctx.currentTime;
+        
+        sequence.forEach(dur => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 600;
+          
+          osc.start(time);
+          osc.stop(time + (dur / 1000));
+          
+          // Add gap between beeps
+          time += (dur / 1000) + 0.1; 
         });
       }
 
@@ -1865,7 +2062,8 @@
           const div = document.createElement('div');
           div.className = `chat-item ${activeChatId === chat.id ? 'active' : ''}`;
           
-          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 25000));
+          // Strict Online Check: Must have open connection
+          const isOnline = chat.type === 'group' ? true : (chat.conn && chat.conn.open);
           const isConnecting = chat.type === 'direct' && !isOnline && chat.conn && !chat.conn.open;
 
           div.innerHTML = `
@@ -1914,7 +2112,8 @@
 
       function updateChatStatus(chat) {
         if(activeChatId !== chat.id || chat.type === 'group') return;
-        const isOnline = chat.conn && chat.conn.open && (Date.now() - chat.lastSeen < 25000);
+        // Strict check
+        const isOnline = chat.conn && chat.conn.open;
         els.chatStatus.textContent = isOnline ? "Online · Encrypted" : "Offline";
         els.chatStatus.style.color = isOnline ? "var(--success)" : "var(--warning)";
       }
@@ -1936,10 +2135,22 @@
         if(msg.type === 'text') {
           contentHtml = sanitize(msg.content);
         } else if (msg.type === 'audio') {
+           const audioId = 'audio-' + msg.id;
            contentHtml = `
-             <div class="audio-player">
-               <i class="fa-solid fa-play" style="font-size:12px;"></i>
-               <audio controls src="${msg.content}"></audio>
+             <div class="audio-visualizer" id="${audioId}">
+               <i class="fa-solid fa-play play-icon" onclick="playAudioMsg('${msg.content}', '${audioId}')"></i>
+               <canvas class="waveform-canvas"></canvas>
+             </div>
+           `;
+           // Draw waveform after render
+           setTimeout(() => drawWaveform(msg.content, audioId), 100);
+        } else if (msg.type === 'morse') {
+           const seqStr = JSON.stringify(msg.content);
+           contentHtml = `
+             <div style="display:flex; align-items:center; gap:10px;">
+               <i class="fa-solid fa-teletype"></i>
+               <span>Morse Sequence (${msg.content.length} taps)</span>
+               <i class="fa-solid fa-play play-icon" onclick='playMorseSequence(${seqStr})'></i>
              </div>
            `;
         } else if (msg.type === 'file') {
@@ -2022,6 +2233,45 @@
              const status = el.querySelector('.msg-status');
              if(status) status.innerHTML = '<i class="fa-solid fa-check"></i>';
            }, 500);
+        }
+      }
+
+      // --- AUDIO VISUALIZER LOGIC ---
+      window.playAudioMsg = (src, containerId) => {
+        const audio = new Audio(src);
+        const container = document.getElementById(containerId);
+        const icon = container.querySelector('.play-icon');
+        
+        icon.className = "fa-solid fa-stop play-icon";
+        icon.onclick = () => { audio.pause(); audio.currentTime = 0; };
+        
+        audio.play();
+        audio.onended = () => {
+           icon.className = "fa-solid fa-play play-icon";
+           icon.onclick = () => playAudioMsg(src, containerId);
+        };
+      };
+
+      function drawWaveform(src, containerId) {
+        const container = document.getElementById(containerId);
+        if(!container) return;
+        const canvas = container.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Simple fake waveform for visual effect since analyzing blob takes resources
+        // Real analysis would require decoding AudioContext which is heavy for list
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        
+        ctx.fillStyle = '#0A84FF';
+        const bars = 30;
+        const gap = 2;
+        const width = (canvas.width / bars) - gap;
+        
+        for(let i=0; i<bars; i++) {
+           const height = Math.random() * canvas.height * 0.8;
+           const y = (canvas.height - height) / 2;
+           ctx.fillRect(i * (width + gap), y, width, height);
         }
       }
 
