@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PepeChat v12.0 · Fixed & Fast</title>
+  <title>PepeChat v13.0 · Instant Connect</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
 
@@ -53,9 +53,9 @@
       position: absolute; inset: 0; z-index: 100;
       background: rgba(0,0,0,0.95); backdrop-filter: blur(20px);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      transition: opacity 0.5s ease;
+      transition: opacity 0.3s ease;
     }
-    #loginScreen.hidden { opacity: 0; pointer-events: none; }
+    #loginScreen.hidden { opacity: 0; pointer-events: none; display: none; }
     
     .login-card {
       background: rgba(30,30,30,0.9); padding: 40px; border-radius: 24px;
@@ -233,9 +233,9 @@
       height: 0; overflow: hidden; background: #000; border-top: 1px solid var(--glass-border);
       font-family: monospace; font-size: 10px; color: var(--success);
       transition: height 0.3s; display: flex; flex-direction: column;
-      position: absolute; bottom: 60px; left: 0; right: 0; z-index: 40;
+      position: absolute; bottom: 60px; left: 0; right: 0; z-index: 9999; /* High Z-Index */
     }
-    #securityLog.open { height: 50%; border-top: 2px solid var(--accent); }
+    #securityLog.open { height: 60%; border-top: 2px solid var(--accent); }
     .log-header {
       padding: 8px 15px; background: #111; cursor: pointer; display: flex; justify-content: space-between;
     }
@@ -375,7 +375,7 @@
   <div id="loginScreen">
     <div class="login-card">
       <div style="font-size: 40px; margin-bottom: 10px;">🐸</div>
-      <h1>PepeChat v12.0</h1>
+      <h1>PepeChat v13.0</h1>
       <p>Ephemeral · Collaborative · Resilient</p>
       <form id="loginForm">
         <input type="text" id="customIdInput" class="login-input" placeholder="Username (Empty for Random)" autocomplete="off" maxlength="20">
@@ -633,10 +633,11 @@
 
       // --- CONFIG & STATE ---
       const APP_URL = `${window.location.origin}${window.location.pathname}`;
-      const STORAGE_KEY = 'pepechat_v12_data';
+      const STORAGE_KEY = 'pepechat_v13_data';
       const CHUNK_SIZE = 16384; 
       
       // Default ICE Servers (STUN only)
+      // NOTE: For 4G/Mobile reliability, you MUST add a TURN server in Settings.
       const DEFAULT_ICE = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
@@ -865,11 +866,28 @@
         setupEventListeners();
         renderVk();
 
-        // 2. Start Async Background Tasks
-        initializeSystem();
+        // 2. Check URL Params for Auto-Connect (Bypass Login)
+        const params = new URLSearchParams(window.location.search);
+        const connectTo = params.get('connect');
+        const keyParam = params.get('key');
+
+        if (connectTo) {
+            // INSTANT LOGIN BYPASS
+            const randomId = generateRandomId();
+            els.loginScreen.style.display = 'none';
+            els.app.classList.add('visible');
+            
+            // Start Async Init
+            initializeSystem(randomId, () => {
+                handleAutoConnect(connectTo, keyParam);
+            });
+        } else {
+            // Normal Load
+            initializeSystem();
+        }
       });
 
-      async function initializeSystem() {
+      async function initializeSystem(forceId = null, callback = null) {
         try {
           await initDB();
         } catch(e) {
@@ -880,7 +898,11 @@
         logSecurity(`My Fingerprint Hash: ${myFingerprint.substring(0, 16)}...`);
         
         loadStorage();
-        checkUrlParams();
+        
+        // If forced ID (from auto-connect), init app now
+        if (forceId) {
+            initApp(forceId, callback);
+        }
         
         // Heartbeat Loop (Every 5 seconds)
         heartbeatInterval = setInterval(sendHeartbeat, 5000);
@@ -972,23 +994,6 @@
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         return new TextDecoder().decode(bytes);
-      }
-
-      function checkUrlParams() {
-        const params = new URLSearchParams(window.location.search);
-        const userParam = params.get('user');
-        const connectTo = params.get('connect');
-        const keyParam = params.get('key');
-
-        if (userParam) {
-          initApp(userParam, () => {
-            if (connectTo) handleAutoConnect(connectTo, keyParam);
-          });
-        } else if (connectTo) {
-          initApp(generateRandomId(), () => {
-             handleAutoConnect(connectTo, keyParam);
-          });
-        }
       }
 
       function handleAutoConnect(connectTo, keyParam) {
@@ -1246,7 +1251,7 @@
         ctx.fillStyle = "#f60";
         ctx.fillRect(125,1,62,20);
         ctx.fillStyle = "#069";
-        ctx.fillText("PepeChatv12", 2, 15);
+        ctx.fillText("PepeChatv13", 2, 15);
         const b64 = canvas.toDataURL();
         
         const components = [
@@ -1278,6 +1283,7 @@
         }
         return {
           iceServers: servers,
+          iceCandidatePoolSize: 10, // Increased for faster gathering
           sdpSemantics: 'unified-plan'
         };
       }
@@ -1427,6 +1433,16 @@
             logDebug(`ICE State (${peerId}): ${pc.iceConnectionState}`);
             chat.iceState = pc.iceConnectionState;
             updateChatStatus(chat);
+            
+            // FORCE ONLINE if ICE connects, even if DataChannel open event is delayed
+            if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                if (!chat.conn.open) {
+                    logDebug("ICE Connected. Forcing UI Online.");
+                    chat.conn.open = true; // Force flag
+                    updateChatStatus(chat);
+                }
+            }
+
             if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
               dumpIceStats(pc, peerId).catch(() => {});
             }
@@ -1512,13 +1528,13 @@
 
           if (msg.toLowerCase().includes('negotiation')) {
             try { conn.close(); } catch {}
-            const backoff = 800 + Math.floor(Math.random() * 1200);
+            // Immediate retry with fresh connection object
+            logDebug(`Negotiation failed. Retrying immediately...`);
             setTimeout(() => {
-              if (chat && chat.type === 'direct' && (!chat.conn || !chat.conn.open) && !chat.dialInProgress) {
-                logDebug(`Retrying after negotiation failure (${peerId})...`);
+              if (chat && chat.type === 'direct') {
                 connectToPeer(peerId, chat.passphrase);
               }
-            }, backoff);
+            }, 500);
           }
         });
         return true;
